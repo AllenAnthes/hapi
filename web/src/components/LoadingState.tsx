@@ -21,6 +21,7 @@ export function LoadingState({
             className={cn('inline-flex items-center gap-2 text-[var(--app-hint)]', className)}
             role="status"
             aria-live="polite"
+            data-testid="loading-state"
         >
             <Spinner size={spinnerSize} label={null} />
             <span>{displayLabel}</span>
