@@ -21,10 +21,10 @@ export const DialogContent = React.forwardRef<
                 className
             )}
             style={resizable ? {
-                width: 'min(32rem, calc(100vw - 24px))',
-                maxWidth: 'calc(100vw - 24px)',
+                width: 'fit-content',
+                maxWidth: 'min(80vw, calc(100vw - 24px))',
                 maxHeight: '90vh',
-                minWidth: '280px',
+                minWidth: '320px',
                 minHeight: '160px',
                 ...style,
             } : style}
