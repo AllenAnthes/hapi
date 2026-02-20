@@ -371,7 +371,7 @@ function ToolCardInner(props: ToolCardProps) {
                             {header}
                         </button>
                     </DialogTrigger>
-                    <DialogContent resizable style={{ width: 'min(42rem, calc(100vw - 24px))' }}>
+                    <DialogContent resizable>
                         <DialogHeader>
                             <DialogTitle>{toolTitle}</DialogTitle>
                         </DialogHeader>

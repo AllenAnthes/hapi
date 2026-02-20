@@ -143,7 +143,7 @@ export function CliOutputBlock(props: { text: string }) {
                             </div>
                         </button>
                     </DialogTrigger>
-                    <DialogContent resizable style={{ width: 'min(42rem, calc(100vw - 24px))' }}>
+                    <DialogContent resizable>
                         <DialogHeader>
                             <DialogTitle>{t('terminal.commandName')}</DialogTitle>
                         </DialogHeader>

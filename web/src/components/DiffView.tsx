@@ -70,7 +70,7 @@ export function DiffView(props: {
                     </div>
                 </button>
             </DialogTrigger>
-            <DialogContent resizable style={{ width: 'min(56rem, calc(100vw - 24px))' }}>
+            <DialogContent resizable style={{ maxWidth: 'min(90vw, calc(100vw - 24px))' }}>
                 <DialogHeader>
                     <DialogTitle className="break-all">{title}</DialogTitle>
                     <DialogDescription className="font-mono break-all">
