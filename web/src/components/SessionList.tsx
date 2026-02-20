@@ -10,8 +10,10 @@ import { SessionActionMenu } from '@/components/SessionActionMenu'
 import { RenameSessionDialog } from '@/components/RenameSessionDialog'
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
 import { clearMessageWindow } from '@/lib/message-window-store'
+import { resolveProvider } from '@/lib/providerTheme'
 import { queryKeys } from '@/lib/query-keys'
 import { useTranslation } from '@/lib/use-translation'
+import { ProviderIcon } from './ProviderIcon'
 
 const SESSION_READ_HISTORY_KEY = 'hapi:sessionReadHistory'
 
@@ -466,12 +468,6 @@ function getTodoProgress(session: SessionSummary): { completed: number; total: n
     return session.todoProgress
 }
 
-function getAgentLabel(session: SessionSummary): string {
-    const flavor = session.metadata?.flavor?.trim()
-    if (flavor) return flavor
-    return 'unknown'
-}
-
 function formatRelativeTime(value: number, t: (key: string, params?: Record<string, string | number>) => string): string | null {
     const ms = normalizeTimestamp(value)
     if (!Number.isFinite(ms)) return null
@@ -661,6 +657,7 @@ function SessionItem(props: {
         : 'bg-[var(--app-hint)]'
     const unreadLabelClass = getUnreadLabelClass(s.thinking)
     const highlighted = selected || (selectionMode && selectedForBulk)
+    const providerDisplay = resolveProvider(s.metadata?.flavor)
 
     return (
         <>
@@ -757,11 +754,11 @@ function SessionItem(props: {
                                     {projectLabel}
                                 </span>
                             ) : null}
-                            <span className="inline-flex items-center gap-2">
-                                <span className="flex h-4 w-4 items-center justify-center" aria-hidden="true">
-                                    ❖
+                            <span className="inline-flex items-center gap-1.5">
+                                <ProviderIcon flavor={s.metadata?.flavor} />
+                                <span style={{ color: `var(${providerDisplay.colorVar})` }}>
+                                    {providerDisplay.label}
                                 </span>
-                                {getAgentLabel(s)}
                             </span>
                             <span>{t('session.item.modelMode')}: {s.modelMode || 'default'}</span>
                             {s.metadata?.worktree?.branch ? (
