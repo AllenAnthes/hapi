@@ -1,5 +1,5 @@
 import { AgentStateSchema, MetadataSchema } from '@hapi/protocol/schemas'
-import type { ModelMode, PermissionMode, Session } from '@hapi/protocol/types'
+import type { ModelMode, PermissionMode, Session, ThinkingActivity } from '@hapi/protocol/types'
 import type { Store, StoredSession } from '../store'
 import { clampAliveTime } from './aliveTime'
 import { EventPublisher } from './eventPublisher'
@@ -125,6 +125,7 @@ export class SessionCache {
             sortOrder: stored.sortOrder,
             thinking: existing?.thinking ?? false,
             thinkingAt: existing?.thinkingAt ?? 0,
+            thinkingActivity: existing?.thinkingActivity ?? null,
             todos,
             permissionMode: existing?.permissionMode,
             modelMode: existing?.modelMode,
@@ -147,6 +148,7 @@ export class SessionCache {
         sid: string
         time: number
         thinking?: boolean
+        thinkingActivity?: ThinkingActivity | null
         mode?: 'local' | 'remote'
         permissionMode?: PermissionMode
         modelMode?: ModelMode
@@ -159,6 +161,7 @@ export class SessionCache {
 
         const wasActive = session.active
         const wasThinking = session.thinking
+        const previousThinkingActivity = session.thinkingActivity ?? null
         const previousPermissionMode = session.permissionMode
         const previousModelMode = session.modelMode
 
@@ -166,6 +169,12 @@ export class SessionCache {
         session.activeAt = Math.max(session.activeAt, t)
         session.thinking = Boolean(payload.thinking)
         session.thinkingAt = t
+        if (payload.thinkingActivity !== undefined) {
+            session.thinkingActivity = payload.thinkingActivity
+        }
+        if (!session.thinking) {
+            session.thinkingActivity = null
+        }
         if (payload.permissionMode !== undefined) {
             session.permissionMode = payload.permissionMode
         }
@@ -176,8 +185,10 @@ export class SessionCache {
         const now = Date.now()
         const lastBroadcastAt = this.lastBroadcastAtBySessionId.get(session.id) ?? 0
         const modeChanged = previousPermissionMode !== session.permissionMode || previousModelMode !== session.modelMode
+        const activityChanged = previousThinkingActivity !== (session.thinkingActivity ?? null)
         const shouldBroadcast = (!wasActive && session.active)
             || (wasThinking !== session.thinking)
+            || activityChanged
             || modeChanged
             || (now - lastBroadcastAt > 10_000)
 
@@ -189,6 +200,7 @@ export class SessionCache {
                 data: {
                     activeAt: session.activeAt,
                     thinking: session.thinking,
+                    thinkingActivity: session.thinkingActivity ?? null,
                     permissionMode: session.permissionMode,
                     modelMode: session.modelMode
                 }
@@ -208,9 +220,10 @@ export class SessionCache {
 
         session.active = false
         session.thinking = false
+        session.thinkingActivity = null
         session.thinkingAt = t
 
-        this.publisher.emit({ type: 'session-updated', sessionId: session.id, data: { active: false, thinking: false } })
+        this.publisher.emit({ type: 'session-updated', sessionId: session.id, data: { active: false, thinking: false, thinkingActivity: null } })
     }
 
     expireInactive(now: number = Date.now()): void {
@@ -221,7 +234,8 @@ export class SessionCache {
             if (now - session.activeAt <= sessionTimeoutMs) continue
             session.active = false
             session.thinking = false
-            this.publisher.emit({ type: 'session-updated', sessionId: session.id, data: { active: false, thinking: false } })
+            session.thinkingActivity = null
+            this.publisher.emit({ type: 'session-updated', sessionId: session.id, data: { active: false, thinking: false, thinkingActivity: null } })
         }
     }
 
