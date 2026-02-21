@@ -499,6 +499,12 @@ export function setPendingPermissionRequestIds(sessionId: string, ids: Set<strin
         if (prev.pendingPermissionRequestIds === ids) {
             return prev
         }
+        // Shallow-compare contents to avoid unnecessary recomputation when
+        // the caller creates a new Set with the same IDs each render.
+        const prevIds = prev.pendingPermissionRequestIds
+        if (prevIds.size === ids.size && [...ids].every((id) => prevIds.has(id))) {
+            return prev
+        }
         return buildState(prev, { pendingPermissionRequestIds: ids })
     })
 }

@@ -153,6 +153,9 @@ export function SessionChat(props: {
         const requests = props.session.agentState?.requests ?? {}
         const ids = new Set(Object.keys(requests))
         setPendingPermissionRequestIds(props.session.id, ids)
+        return () => {
+            setPendingPermissionRequestIds(props.session.id, new Set())
+        }
     }, [props.session.agentState?.requests, props.session.id])
 
     // Auto-flush and scroll to bottom when a permission prompt is detected in the pending queue.
