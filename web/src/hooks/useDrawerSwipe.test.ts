@@ -234,4 +234,88 @@ describe('useDrawerSwipe', () => {
         expect(result.current.isOpen).toBe(false)
         expect(result.current.isDragging).toBe(false)
     })
+
+    it('touchcancel resets isDragging and snaps based on offset', () => {
+        const { result } = renderHook(
+            () => useDrawerSwipe({ enabled: true }),
+            { wrapper }
+        )
+
+        result.current.containerRef.current = containerDiv
+        result.current.backdropRef.current = backdropDiv
+
+        containerDiv.style.getPropertyValue = vi.fn().mockReturnValue('0.2')
+
+        act(() => {
+            fireTouch('touchstart', 10, 400)
+            fireTouch('touchmove', 100, 402)
+        })
+        expect(result.current.isDragging).toBe(true)
+
+        act(() => {
+            fireTouch('touchcancel', 100, 402)
+        })
+        expect(result.current.isDragging).toBe(false)
+        expect(result.current.isOpen).toBe(false)
+    })
+
+    it('ignores touches from a different identifier during active gesture', () => {
+        const { result } = renderHook(
+            () => useDrawerSwipe({ enabled: true }),
+            { wrapper }
+        )
+
+        result.current.containerRef.current = containerDiv
+        result.current.backdropRef.current = backdropDiv
+
+        // Start gesture with identifier 0
+        act(() => {
+            fireTouch('touchstart', 10, 400, 0)
+            fireTouch('touchmove', 100, 402, 0)
+        })
+        expect(result.current.isDragging).toBe(true)
+
+        // A second touch with different identifier should not interfere
+        act(() => {
+            fireTouch('touchstart', 200, 300, 1)
+        })
+
+        // Original gesture should still be active
+        expect(result.current.isDragging).toBe(true)
+    })
+
+    it('close swipe on open drawer snaps closed', () => {
+        const { result } = renderHook(
+            () => useDrawerSwipe({ enabled: true }),
+            { wrapper }
+        )
+
+        result.current.containerRef.current = containerDiv
+        result.current.backdropRef.current = backdropDiv
+
+        // Open the drawer programmatically
+        act(() => result.current.open())
+        expect(result.current.isOpen).toBe(true)
+
+        // Reconfigure backdrop mock for close gesture detection
+        // Touch on the backdrop area (right side, past the drawer panel)
+        backdropDiv.getBoundingClientRect = vi.fn().mockReturnValue({
+            left: 340, right: 400, top: 0, bottom: 800,
+            width: 60, height: 800, x: 340, y: 0, toJSON: () => ({}),
+        })
+
+        // Mock offset reading for snap decision (dragged mostly closed)
+        containerDiv.style.getPropertyValue = vi.fn().mockReturnValue('0.2')
+
+        act(() => {
+            // Touch starts on backdrop
+            fireTouch('touchstart', 360, 400)
+            // Swipe left (negative dx)
+            fireTouch('touchmove', 200, 402)
+            fireTouch('touchend', 200, 402)
+        })
+
+        expect(result.current.isOpen).toBe(false)
+        expect(result.current.isDragging).toBe(false)
+    })
 })

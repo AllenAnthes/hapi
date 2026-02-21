@@ -56,12 +56,14 @@ export function useDrawerSwipe(options: UseDrawerSwipeOptions): UseDrawerSwipeRe
     }, [])
 
     const open = useCallback(() => {
+        isOpenRef.current = true
         setIsOpen(true)
         setIsDragging(false)
         setOffset(1)
     }, [setOffset])
 
     const close = useCallback(() => {
+        isOpenRef.current = false
         setIsOpen(false)
         setIsDragging(false)
         setOffset(0)
@@ -204,9 +206,11 @@ export function useDrawerSwipe(options: UseDrawerSwipeOptions): UseDrawerSwipeRe
             setIsDragging(false)
 
             if (currentOffset >= snapThreshold) {
+                isOpenRef.current = true
                 setIsOpen(true)
                 setOffset(1)
             } else {
+                isOpenRef.current = false
                 setIsOpen(false)
                 setOffset(0)
             }

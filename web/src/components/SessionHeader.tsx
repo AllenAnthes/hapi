@@ -162,6 +162,7 @@ export function SessionHeader(props: {
                             type="button"
                             onClick={drawerCtx.openDrawer}
                             className="flex lg:hidden h-8 w-8 items-center justify-center rounded-full text-[var(--app-hint)] transition-colors hover:bg-[var(--app-secondary-bg)] hover:text-[var(--app-fg)]"
+                            aria-label="Open session list"
                             data-testid="drawer-hamburger"
                         >
                             <MenuIcon />

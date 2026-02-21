@@ -350,7 +350,7 @@ function SessionsPage() {
                 {/* Main content area */}
                 <div
                     className={`${isSessionsIndex ? 'hidden lg:flex' : 'flex'} min-w-0 flex-1 flex-col bg-[var(--app-bg)]`}
-                    {...(drawer.isOpen ? { inert: '' as unknown as boolean } : {})}
+                    inert={drawer.isOpen || undefined}
                 >
                     <div className="flex-1 min-h-0">
                         <Outlet />
@@ -383,6 +383,7 @@ function SessionsPage() {
                             }}
                             role="dialog"
                             aria-modal={drawer.isOpen ? true : undefined}
+                            aria-label="Session list"
                             data-testid="drawer-panel"
                         >
                             <SessionListPanel {...listPanelProps} />
