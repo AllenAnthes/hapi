@@ -317,15 +317,15 @@ export class SyncEngine {
         const senderName = senderSession.metadata?.name ?? senderSessionId
         const text = `[Inter-agent message from ${senderName} (${senderSessionId})]\n\n${content}`
 
-        await this.messageService.sendMessage(targetSessionId, {
+        const messageId = await this.messageService.sendMessage(targetSessionId, {
             text,
-            sentFrom: 'inter-agent' as any
+            sentFrom: 'inter-agent'
         })
 
         const isActive = targetSession.active
         return {
             status: isActive ? 'delivered' : 'queued',
-            messageId: targetSessionId
+            messageId
         }
     }
 
