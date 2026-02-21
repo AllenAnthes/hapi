@@ -88,7 +88,6 @@ export class SyncEngine {
     private readonly messageService: MessageService
     private readonly rpcGateway: RpcGateway
     private readonly beadGateway: BeadGateway
-    private readonly store: Store
     private readonly beadService: BeadService
     private inactivityTimer: NodeJS.Timeout | null = null
     private teamSweepTimer: NodeJS.Timeout | null = null
