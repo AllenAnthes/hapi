@@ -1476,9 +1476,13 @@ export function SessionList(props: {
             {renderHeader ? (
                 <div className="flex items-center justify-between px-3 py-1">
                     <div className="text-xs text-[var(--app-hint)]">
-                        {isFlat
-                            ? t('sessions.countFlat', { n: filteredSessions.length })
-                            : t('sessions.count', { n: filteredSessions.length, m: displayGroups.length })}
+                        {props.hideInactive
+                            ? (isFlat
+                                ? t('sessions.countActiveFlat', { n: filteredSessions.length })
+                                : t('sessions.countActive', { n: filteredSessions.length, m: displayGroups.length }))
+                            : (isFlat
+                                ? t('sessions.countFlat', { n: filteredSessions.length })
+                                : t('sessions.count', { n: filteredSessions.length, m: displayGroups.length }))}
                     </div>
                     <button
                         type="button"
