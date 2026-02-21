@@ -72,7 +72,14 @@ export class AgentSessionBase<Mode> {
 
     onThinkingActivityChange = (activity: ThinkingActivity | null) => {
         this.thinkingActivity = activity;
-        this.client.keepAlive(this.thinking, this.mode, this.getKeepAliveRuntime(), { volatile: false });
+        // Always include thinkingActivity explicitly — getKeepAliveRuntime() may
+        // omit it when null (payload optimization), but we need the hub to receive
+        // the null to clear a previously-set activity while still thinking.
+        this.client.keepAlive(this.thinking, this.mode, {
+            permissionMode: this.permissionMode,
+            modelMode: this.modelMode,
+            thinkingActivity: activity
+        }, { volatile: false });
     };
 
     onModeChange = (mode: 'local' | 'remote') => {
@@ -119,7 +126,7 @@ export class AgentSessionBase<Mode> {
         return {
             permissionMode: this.permissionMode,
             modelMode: this.modelMode,
-            ...(this.thinkingActivity !== null ? { thinkingActivity: this.thinkingActivity } : {})
+            thinkingActivity: this.thinkingActivity
         };
     }
 
