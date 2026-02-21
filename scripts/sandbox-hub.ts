@@ -161,7 +161,7 @@ async function start(args: string[]): Promise<void> {
                 const warmScript = resolve(dirname(fileURLToPath(import.meta.url)), 'warm-sandbox.ts')
                 const warmLogFd = openSync(hubLog, 'a')
                 const warmProc = Bun.spawn(['bun', warmScript], {
-                    cwd: projectRoot,
+                    cwd: join(projectRoot, 'cli'),
                     env: {
                         ...process.env,
                         SANDBOX_PORT: String(port),
