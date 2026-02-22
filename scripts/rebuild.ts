@@ -263,7 +263,7 @@ if (ok && backup && existsSync(backup)) {
     console.log('==> Starting health watchdog (2 min)...')
     const watchdog = Bun.spawn(
         ['bun', resolve(REPO_DIR, 'scripts/rebuild-watchdog.ts'),
-         '--binary', globalBinary, '--backup', backup],
+         '--binary', globalBinary, '--backup', backup, '--port', String(PORT)],
         { stdout: 'ignore', stderr: 'ignore', stdin: 'ignore' }
     )
     watchdog.unref()

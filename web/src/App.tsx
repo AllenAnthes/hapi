@@ -128,6 +128,7 @@ function AppInner() {
     const [sseDisconnected, setSseDisconnected] = useState(false)
     const [restartSignalReceived, setRestartSignalReceived] = useState(false)
     const [showOverlay, setShowOverlay] = useState(false)
+    const [sseReconnectToken, setSseReconnectToken] = useState(0)
     const gracePeriodRef = useRef<ReturnType<typeof setTimeout> | null>(null)
     const syncTokenRef = useRef(0)
     const isFirstConnectRef = useRef(true)
@@ -289,6 +290,7 @@ function AppInner() {
         enabled: Boolean(api && token),
         token: token ?? '',
         baseUrl,
+        reconnectToken: sseReconnectToken,
         subscription: eventSubscription,
         activeSessionId: selectedSessionId,
         onActiveSessionRemoved: handleActiveSessionRemoved,
@@ -309,6 +311,8 @@ function AppInner() {
                 clearTimeout(gracePeriodRef.current)
                 gracePeriodRef.current = null
             }
+            // Increment reconnect token to force useSSE to create a new EventSource
+            setSseReconnectToken(t => t + 1)
             void queryClient.invalidateQueries()
         }, [queryClient])
     })

@@ -20,19 +20,29 @@ function getServiceFilePath(): string {
     return join(homedir(), '.config', 'systemd', 'user', 'hapi-hub.service')
 }
 
-function generateServiceUnit(binaryPath: string, hapiHome: string): string {
+async function hasSystemdNotify(): Promise<boolean> {
+    const proc = Bun.spawn(['which', 'systemd-notify'], { stdout: 'ignore', stderr: 'ignore' })
+    return (await proc.exited) === 0
+}
+
+function generateServiceUnit(binaryPath: string, hapiHome: string, useNotify: boolean): string {
+    const serviceLines = useNotify
+        ? `Type=notify
+NotifyAccess=all
+WatchdogSec=60`
+        : `Type=simple`
+
     return `[Unit]
 Description=HAPI Hub Server
 After=network-online.target
 Wants=network-online.target
 
 [Service]
-Type=notify
+${serviceLines}
 ExecStart=${binaryPath} hub --no-relay
 Environment=HAPI_HOME=${hapiHome}
 Restart=on-failure
 RestartSec=3
-WatchdogSec=60
 
 [Install]
 WantedBy=default.target
@@ -68,7 +78,11 @@ export const serviceCommand: CommandDefinition = {
                 mkdirSync(serviceDir, { recursive: true })
             }
 
-            const unit = generateServiceUnit(binaryPath, hapiHome)
+            const useNotify = await hasSystemdNotify()
+            if (!useNotify) {
+                console.log('Note: systemd-notify not found, using Type=simple (no watchdog)')
+            }
+            const unit = generateServiceUnit(binaryPath, hapiHome, useNotify)
             writeFileSync(serviceFile, unit)
             console.log(`Service file written to ${serviceFile}`)
 

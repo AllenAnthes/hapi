@@ -20,7 +20,8 @@ function getServiceFilePath(): string {
 function generateService(
     sshJumpHost: string,
     keyPath: string,
-    remotePort: number
+    remotePort: number,
+    autosshPath: string
 ): string {
     return `[Unit]
 Description=HAPI SSH Escape Hatch (reverse tunnel to ${sshJumpHost})
@@ -28,7 +29,7 @@ After=network-online.target
 Wants=network-online.target
 
 [Service]
-ExecStart=/usr/bin/autossh -M 0 -N -o "ServerAliveInterval 30" -o "ServerAliveCountMax 3" -o "ExitOnForwardFailure yes" -o "StrictHostKeyChecking accept-new" -i ${keyPath} -R ${remotePort}:localhost:22 ${sshJumpHost}
+ExecStart=${autosshPath} -M 0 -N -o "ServerAliveInterval 30" -o "ServerAliveCountMax 3" -o "ExitOnForwardFailure yes" -o "StrictHostKeyChecking accept-new" -i ${keyPath} -R ${remotePort}:localhost:22 ${sshJumpHost}
 Restart=always
 RestartSec=10
 
@@ -69,6 +70,16 @@ export const escapeHatchCommand: CommandDefinition = {
             }
 
             const remotePort = commandArgs[2] ? parseInt(commandArgs[2], 10) : 2222
+            if (isNaN(remotePort) || remotePort < 1 || remotePort > 65535) {
+                console.error(`Invalid port: ${commandArgs[2]}. Must be 1-65535.`)
+                process.exit(1)
+            }
+
+            // Ensure HAPI_HOME exists before writing keys
+            const hapiHome = getHapiHome()
+            if (!existsSync(hapiHome)) {
+                mkdirSync(hapiHome, { recursive: true })
+            }
 
             // Generate ed25519 keypair if it doesn't exist
             const keyPath = getKeyPath()
@@ -104,7 +115,7 @@ export const escapeHatchCommand: CommandDefinition = {
                 mkdirSync(serviceDir, { recursive: true })
             }
 
-            const unit = generateService(jumpHost, keyPath, remotePort)
+            const unit = generateService(jumpHost, keyPath, remotePort, autosshPath)
             writeFileSync(serviceFile, unit)
 
             await runSystemctl('daemon-reload')

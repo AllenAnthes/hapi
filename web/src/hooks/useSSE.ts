@@ -55,6 +55,7 @@ export function useSSE(options: {
     baseUrl: string
     subscription?: SSESubscription
     activeSessionId?: string | null
+    reconnectToken?: number
     onEvent: (event: SyncEvent) => void
     onActiveSessionRemoved?: (sessionId: string) => void
     onConnect?: () => void
@@ -213,7 +214,7 @@ export function useSSE(options: {
             }
             setSubscriptionId(null)
         }
-    }, [options.baseUrl, options.enabled, options.token, subscriptionKey, queryClient])
+    }, [options.baseUrl, options.enabled, options.token, options.reconnectToken, subscriptionKey, queryClient])
 
     return { subscriptionId }
 }

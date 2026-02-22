@@ -33,11 +33,17 @@ export function useHealthPoll({
             const url = new URL('/health', baseUrl).toString()
             const res = await fetch(url, { signal: AbortSignal.timeout(5000) })
             if (res.ok) {
-                retryCountRef.current = 0
-                setRetryCount(0)
-                pollingRef.current = false
-                onHealthyRef.current()
-                return
+                // Validate this is actually the hub and not a tunnel error page
+                // served as HTTP 200 HTML (e.g., ngrok "Tunnel not found")
+                const ct = res.headers.get('content-type') || ''
+                if (ct.includes('application/json')) {
+                    retryCountRef.current = 0
+                    setRetryCount(0)
+                    pollingRef.current = false
+                    onHealthyRef.current()
+                    return
+                }
+                // Got 200 but not JSON — likely tunnel error page, treat as failure
             }
         } catch {
             // Expected when hub is down

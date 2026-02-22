@@ -1,5 +1,5 @@
 /// <reference lib="webworker" />
-import { precacheAndRoute } from 'workbox-precaching'
+import { matchPrecache, precacheAndRoute } from 'workbox-precaching'
 import { registerRoute } from 'workbox-routing'
 import { CacheFirst, NetworkFirst } from 'workbox-strategies'
 import { ExpirationPlugin } from 'workbox-expiration'
@@ -47,13 +47,13 @@ registerRoute(
             if (ct.includes('text/html') && response.ok) {
                 const text = await response.clone().text()
                 if (text.includes('ERR_NGROK') || text.includes('Tunnel not found')) {
-                    const cached = await caches.match('/index.html')
+                    const cached = await matchPrecache('/index.html')
                     if (cached) return cached
                 }
             }
             return response
         } catch {
-            const cached = await caches.match('/index.html')
+            const cached = await matchPrecache('/index.html')
             if (cached) return cached
             return new Response('Hub is restarting...', {
                 status: 503,
