@@ -227,7 +227,7 @@ if (await build()) {
         try { unlinkSync(globalBinary) } catch {}
         copyFileSync(BUILT_BINARY, globalBinary)
         chmodSync(globalBinary, 0o755)
-        if (backup) try { unlinkSync(backup) } catch {}
+        // Keep .bak for watchdog rollback — overwritten on next rebuild
         // Print version
         const ver = Bun.spawn([globalBinary, '--version'], { stdout: 'pipe', stderr: 'ignore' })
         const version = await new Response(ver.stdout).text()
@@ -257,4 +257,16 @@ if (await isSystemdServiceActive()) {
 } else {
     ok = await startHub()
 }
+
+// Spawn post-rebuild health watchdog if backup exists
+if (ok && backup && existsSync(backup)) {
+    console.log('==> Starting health watchdog (2 min)...')
+    const watchdog = Bun.spawn(
+        ['bun', resolve(REPO_DIR, 'scripts/rebuild-watchdog.ts'),
+         '--binary', globalBinary, '--backup', backup],
+        { stdout: 'ignore', stderr: 'ignore', stdin: 'ignore' }
+    )
+    watchdog.unref()
+}
+
 process.exit(ok ? 0 : 1)
