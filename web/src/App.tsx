@@ -8,6 +8,7 @@ import { useAuth } from '@/hooks/useAuth'
 import { useAuthSource } from '@/hooks/useAuthSource'
 import { useServerUrl } from '@/hooks/useServerUrl'
 import { useSSE } from '@/hooks/useSSE'
+import { useHealthPoll } from '@/hooks/useHealthPoll'
 import { useSyncingState } from '@/hooks/useSyncingState'
 import { usePushNotifications } from '@/hooks/usePushNotifications'
 import { useVisibilityReporter } from '@/hooks/useVisibilityReporter'
@@ -125,6 +126,10 @@ function AppInner() {
     const selectedSessionId = sessionMatch && sessionMatch.sessionId !== 'new' ? sessionMatch.sessionId : null
     const { isSyncing, startSync, endSync } = useSyncingState()
     const [sseDisconnected, setSseDisconnected] = useState(false)
+    const [restartSignalReceived, setRestartSignalReceived] = useState(false)
+    const [showOverlay, setShowOverlay] = useState(false)
+    const [sseReconnectToken, setSseReconnectToken] = useState(0)
+    const gracePeriodRef = useRef<ReturnType<typeof setTimeout> | null>(null)
     const syncTokenRef = useRef(0)
     const isFirstConnectRef = useRef(true)
     const baseUrlRef = useRef(baseUrl)
@@ -189,6 +194,12 @@ function AppInner() {
     const handleSseConnect = useCallback(() => {
         // Clear disconnected state on successful connection
         setSseDisconnected(false)
+        setRestartSignalReceived(false)
+        setShowOverlay(false)
+        if (gracePeriodRef.current) {
+            clearTimeout(gracePeriodRef.current)
+            gracePeriodRef.current = null
+        }
 
         // Increment token to track this specific connection
         const token = ++syncTokenRef.current
@@ -235,6 +246,10 @@ function AppInner() {
         wasThinkingRef.current = false
     }, [selectedSessionId])
     const handleSseEvent = useCallback((event: SyncEvent) => {
+        if (event.type === 'hub:restarting') {
+            setRestartSignalReceived(true)
+            return
+        }
         if (
             event.type === 'session-updated' &&
             'sessionId' in event &&
@@ -275,6 +290,7 @@ function AppInner() {
         enabled: Boolean(api && token),
         token: token ?? '',
         baseUrl,
+        reconnectToken: sseReconnectToken,
         subscription: eventSubscription,
         activeSessionId: selectedSessionId,
         onActiveSessionRemoved: handleActiveSessionRemoved,
@@ -283,6 +299,47 @@ function AppInner() {
         onEvent: handleSseEvent,
         onToast: handleToast
     })
+
+    const { retryCount, retryNow } = useHealthPoll({
+        baseUrl,
+        enabled: sseDisconnected,
+        onHealthy: useCallback(() => {
+            setSseDisconnected(false)
+            setRestartSignalReceived(false)
+            setShowOverlay(false)
+            if (gracePeriodRef.current) {
+                clearTimeout(gracePeriodRef.current)
+                gracePeriodRef.current = null
+            }
+            // Increment reconnect token to force useSSE to create a new EventSource
+            setSseReconnectToken(t => t + 1)
+            void queryClient.invalidateQueries()
+        }, [queryClient])
+    })
+
+    useEffect(() => {
+        if (sseDisconnected) {
+            if (restartSignalReceived) {
+                setShowOverlay(true)
+                return undefined
+            }
+            gracePeriodRef.current = setTimeout(() => {
+                setShowOverlay(true)
+            }, 3000)
+            return () => {
+                if (gracePeriodRef.current) {
+                    clearTimeout(gracePeriodRef.current)
+                    gracePeriodRef.current = null
+                }
+            }
+        }
+        setShowOverlay(false)
+        if (gracePeriodRef.current) {
+            clearTimeout(gracePeriodRef.current)
+            gracePeriodRef.current = null
+        }
+        return undefined
+    }, [sseDisconnected, restartSignalReceived])
 
     useVisibilityReporter({
         api,
@@ -392,7 +449,12 @@ function AppInner() {
         <AppContextProvider value={{ api, token, baseUrl }}>
             <VoiceProvider>
                 <SyncingBanner isSyncing={isSyncing} />
-                <ReconnectingBanner isReconnecting={sseDisconnected && !isSyncing} />
+                <ReconnectingBanner
+                    isReconnecting={showOverlay && !isSyncing}
+                    mode={restartSignalReceived ? 'restarting' : 'disconnected'}
+                    retryCount={retryCount}
+                    onRetryNow={retryNow}
+                />
                 <VoiceErrorBanner />
                 <OfflineBanner />
                 <PendingPromptsBanner api={api} currentSessionId={selectedSessionId} />

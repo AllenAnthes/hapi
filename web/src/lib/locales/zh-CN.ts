@@ -280,6 +280,13 @@ export default {
   'syncing.title': '同步中…',
   'syncing.message': '正在同步您的数据。',
   'reconnecting.message': '正在重新连接...',
+  'reconnecting.restarting.title': '正在重启',
+  'reconnecting.restarting.subtitle': '服务正在更新，通常需要一分钟左右。',
+  'reconnecting.disconnected.title': '连接已断开',
+  'reconnecting.disconnected.subtitle': '正在尝试重新连接...',
+  'reconnecting.elapsed': '已等待 {seconds} 秒',
+  'reconnecting.attempt': '第 {n} 次尝试',
+  'reconnecting.retryNow': '立即重试',
   'pendingPrompts.message': '{m} 个会话共有 {n} 个待处理提示 · 下一个：{name}',
   'pendingPrompts.open': '打开',
 
