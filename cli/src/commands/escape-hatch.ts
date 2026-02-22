@@ -52,6 +52,14 @@ export const escapeHatchCommand: CommandDefinition = {
     run: async ({ commandArgs }) => {
         const subcommand = commandArgs[0]
 
+        if (subcommand && subcommand !== 'help') {
+            const hasSystemctl = Bun.spawn(['which', 'systemctl'], { stdout: 'ignore', stderr: 'ignore' })
+            if (await hasSystemctl.exited !== 0) {
+                console.error('systemd is not available on this host. The escape-hatch command requires systemctl.')
+                process.exit(1)
+            }
+        }
+
         if (subcommand === 'setup') {
             const jumpHost = commandArgs[1]
             if (!jumpHost) {

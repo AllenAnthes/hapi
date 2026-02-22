@@ -49,6 +49,11 @@ WantedBy=default.target
 `
 }
 
+async function hasSystemctl(): Promise<boolean> {
+    const proc = Bun.spawn(['which', 'systemctl'], { stdout: 'ignore', stderr: 'ignore' })
+    return (await proc.exited) === 0
+}
+
 async function runSystemctl(...args: string[]): Promise<number> {
     const proc = Bun.spawn(['systemctl', '--user', ...args], {
         stdout: 'inherit',
@@ -62,6 +67,11 @@ export const serviceCommand: CommandDefinition = {
     requiresRuntimeAssets: false,
     run: async ({ commandArgs }) => {
         const subcommand = commandArgs[0]
+
+        if (subcommand && !await hasSystemctl()) {
+            console.error('systemd is not available on this host. The service command requires systemctl.')
+            process.exit(1)
+        }
 
         if (subcommand === 'install') {
             const binaryPath = await resolveHapiBinary()

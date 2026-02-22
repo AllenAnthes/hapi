@@ -37,6 +37,12 @@ export function useHealthPoll({
                 // served as HTTP 200 HTML (e.g., ngrok "Tunnel not found")
                 const ct = res.headers.get('content-type') || ''
                 if (ct.includes('application/json')) {
+                    // Re-check enabled after async fetch — disconnect may have
+                    // already been cleared by SSE reconnect while we were in flight
+                    if (!enabledRef.current) {
+                        pollingRef.current = false
+                        return
+                    }
                     retryCountRef.current = 0
                     setRetryCount(0)
                     pollingRef.current = false
