@@ -73,9 +73,12 @@ interface TunnelState {
 export class TunnelManager {
     private config: TunnelConfig
     private state: TunnelState
-    private readonly maxRetries = 5
     private readonly retryDelayMs = 3000
+    private readonly maxDelayMs = 300_000      // 5 minute cap
+    private readonly jitterFactor = 0.3        // 0-30% random jitter
+    private readonly healthyResetMs = 60_000   // Reset backoff after 60s healthy
     private retryTimeout: ReturnType<typeof setTimeout> | null = null
+    private healthyTimer: ReturnType<typeof setTimeout> | null = null
     private stopped = false
 
     constructor(config: TunnelConfig) {
@@ -164,7 +167,17 @@ export class TunnelManager {
                                 if (!resolved) {
                                     this.state.tunnelUrl = parsed.url
                                     this.state.isConnected = true
-                                    this.state.retryCount = 0
+                                    if (this.state.retryCount > 0) {
+                                        console.log(`[Tunnel] Reconnected after ${this.state.retryCount} attempt${this.state.retryCount === 1 ? '' : 's'}`)
+                                    }
+                                    // Delay backoff reset — only reset after connection is stable
+                                    if (this.healthyTimer) clearTimeout(this.healthyTimer)
+                                    this.healthyTimer = setTimeout(() => {
+                                        if (this.state.isConnected) {
+                                            this.state.retryCount = 0
+                                        }
+                                        this.healthyTimer = null
+                                    }, this.healthyResetMs)
                                     resolved = true
                                     resolve(parsed.url)
                                 }
@@ -234,19 +247,20 @@ export class TunnelManager {
                         return
                     }
 
-                    // Auto-restart with exponential backoff (only if we had a successful connection before)
-                    if (this.state.retryCount < this.maxRetries) {
-                        this.state.retryCount++
-                        const delay = this.retryDelayMs * Math.pow(2, this.state.retryCount - 1)
-                        console.log(`[Tunnel] Restarting in ${delay}ms (attempt ${this.state.retryCount}/${this.maxRetries})`)
-                        this.retryTimeout = setTimeout(() => {
-                            this.spawnTunwg().catch(err => {
-                                console.error('[Tunnel] Restart failed:', err)
-                            })
-                        }, delay)
-                    } else {
-                        console.error('[Tunnel] Max retries reached. Tunnel disabled.')
-                    }
+                    // Auto-restart with exponential backoff (always retry, never give up)
+                    this.state.retryCount++
+                    const baseDelay = Math.min(
+                        this.retryDelayMs * Math.pow(2, this.state.retryCount - 1),
+                        this.maxDelayMs
+                    )
+                    const jitter = baseDelay * this.jitterFactor * Math.random()
+                    const delay = Math.round(baseDelay + jitter)
+                    console.log(`[Tunnel] Restarting in ${Math.round(delay / 1000)}s (attempt ${this.state.retryCount})`)
+                    this.retryTimeout = setTimeout(() => {
+                        this.spawnTunwg().catch(err => {
+                            console.error('[Tunnel] Restart failed:', err)
+                        })
+                    }, delay)
                 } else if (!resolved) {
                     // Process exited cleanly but no URL - shouldn't happen, but handle gracefully
                     resolved = true
@@ -274,6 +288,11 @@ export class TunnelManager {
 
     async stop(): Promise<void> {
         this.stopped = true
+
+        if (this.healthyTimer) {
+            clearTimeout(this.healthyTimer)
+            this.healthyTimer = null
+        }
 
         if (this.retryTimeout) {
             clearTimeout(this.retryTimeout)

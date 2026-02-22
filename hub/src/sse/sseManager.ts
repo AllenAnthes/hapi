@@ -148,7 +148,7 @@ export class SSEManager {
     }
 
     private shouldSend(connection: SSEConnection, event: SyncEvent): boolean {
-        if (event.type !== 'connection-changed') {
+        if (event.type !== 'connection-changed' && event.type !== 'hub:restarting') {
             const eventNamespace = event.namespace
             if (!eventNamespace || eventNamespace !== connection.namespace) {
                 return false
@@ -163,6 +163,10 @@ export class SSEManager {
         }
 
         if (event.type === 'connection-changed') {
+            return true
+        }
+
+        if (event.type === 'hub:restarting') {
             return true
         }
 

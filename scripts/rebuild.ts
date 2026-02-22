@@ -98,6 +98,14 @@ async function stopHub(): Promise<void> {
     await killPort()
 }
 
+async function isSystemdServiceActive(): Promise<boolean> {
+    const proc = Bun.spawn(
+        ['systemctl', '--user', 'is-active', '--quiet', 'hapi-hub.service'],
+        { stdout: 'ignore', stderr: 'ignore' }
+    )
+    return (await proc.exited) === 0
+}
+
 async function startHub(): Promise<boolean> {
     for (let attempt = 1; attempt <= 3; attempt++) {
         console.log('==> Ensuring port is free...')
@@ -186,6 +194,13 @@ if (cmd === 'status') {
 }
 
 if (cmd === 'restart') {
+    if (await isSystemdServiceActive()) {
+        console.log('==> Restarting via systemd service...')
+        const proc = Bun.spawn(['systemctl', '--user', 'restart', 'hapi-hub.service'], {
+            stdout: 'inherit', stderr: 'inherit'
+        })
+        process.exit((await proc.exited) === 0 ? 0 : 1)
+    }
     await stopHub()
     const ok = await startHub()
     process.exit(ok ? 0 : 1)
@@ -212,7 +227,7 @@ if (await build()) {
         try { unlinkSync(globalBinary) } catch {}
         copyFileSync(BUILT_BINARY, globalBinary)
         chmodSync(globalBinary, 0o755)
-        if (backup) try { unlinkSync(backup) } catch {}
+        // Keep .bak for watchdog rollback — overwritten on next rebuild
         // Print version
         const ver = Bun.spawn([globalBinary, '--version'], { stdout: 'pipe', stderr: 'ignore' })
         const version = await new Response(ver.stdout).text()
@@ -229,5 +244,29 @@ if (await build()) {
 }
 
 // Always restart
-const ok = await startHub()
+let ok: boolean
+if (await isSystemdServiceActive()) {
+    console.log('==> Restarting via systemd service...')
+    const proc = Bun.spawn(['systemctl', '--user', 'restart', 'hapi-hub.service'], {
+        stdout: 'inherit', stderr: 'inherit'
+    })
+    ok = (await proc.exited) === 0
+    if (ok) {
+        console.log('==> Hub restarted via systemd')
+    }
+} else {
+    ok = await startHub()
+}
+
+// Spawn post-rebuild health watchdog if backup exists
+if (ok && backup && existsSync(backup)) {
+    console.log('==> Starting health watchdog (2 min)...')
+    const watchdog = Bun.spawn(
+        ['bun', resolve(REPO_DIR, 'scripts/rebuild-watchdog.ts'),
+         '--binary', globalBinary, '--backup', backup, '--port', String(PORT)],
+        { stdout: 'ignore', stderr: 'ignore', stdin: 'ignore' }
+    )
+    watchdog.unref()
+}
+
 process.exit(ok ? 0 : 1)
