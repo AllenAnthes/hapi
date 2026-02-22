@@ -98,6 +98,14 @@ async function stopHub(): Promise<void> {
     await killPort()
 }
 
+async function isSystemdServiceActive(): Promise<boolean> {
+    const proc = Bun.spawn(
+        ['systemctl', '--user', 'is-active', '--quiet', 'hapi-hub.service'],
+        { stdout: 'ignore', stderr: 'ignore' }
+    )
+    return (await proc.exited) === 0
+}
+
 async function startHub(): Promise<boolean> {
     for (let attempt = 1; attempt <= 3; attempt++) {
         console.log('==> Ensuring port is free...')
@@ -186,6 +194,13 @@ if (cmd === 'status') {
 }
 
 if (cmd === 'restart') {
+    if (await isSystemdServiceActive()) {
+        console.log('==> Restarting via systemd service...')
+        const proc = Bun.spawn(['systemctl', '--user', 'restart', 'hapi-hub.service'], {
+            stdout: 'inherit', stderr: 'inherit'
+        })
+        process.exit((await proc.exited) === 0 ? 0 : 1)
+    }
     await stopHub()
     const ok = await startHub()
     process.exit(ok ? 0 : 1)
@@ -229,5 +244,17 @@ if (await build()) {
 }
 
 // Always restart
-const ok = await startHub()
+let ok: boolean
+if (await isSystemdServiceActive()) {
+    console.log('==> Restarting via systemd service...')
+    const proc = Bun.spawn(['systemctl', '--user', 'restart', 'hapi-hub.service'], {
+        stdout: 'inherit', stderr: 'inherit'
+    })
+    ok = (await proc.exited) === 0
+    if (ok) {
+        console.log('==> Hub restarted via systemd')
+    }
+} else {
+    ok = await startHub()
+}
 process.exit(ok ? 0 : 1)

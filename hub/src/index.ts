@@ -97,6 +97,36 @@ function mergeCorsOrigins(base: string[], extra: string[]): string[] {
     return Array.from(merged)
 }
 
+function createSdNotify(): { ready: () => void; stop: () => void } | null {
+    if (!process.env.NOTIFY_SOCKET) return null
+
+    let timer: ReturnType<typeof setInterval> | null = null
+
+    const notify = (...args: string[]) => {
+        const proc = Bun.spawn(['systemd-notify', ...args], {
+            stdout: 'ignore',
+            stderr: 'ignore',
+            env: process.env as Record<string, string>
+        })
+        proc.unref()
+    }
+
+    return {
+        ready() {
+            notify('--ready')
+            // WatchdogSec=60 in service file, ping every 25s for safety margin
+            timer = setInterval(() => notify('WATCHDOG=1'), 25_000)
+        },
+        stop() {
+            notify('--stopping')
+            if (timer) {
+                clearInterval(timer)
+                timer = null
+            }
+        }
+    }
+}
+
 let syncEngine: SyncEngine | null = null
 let happyBot: HappyBot | null = null
 let webServer: BunServer<unknown> | null = null
@@ -294,9 +324,13 @@ async function main() {
     console.log('')
     console.log('HAPI Hub is ready!')
 
+    const sdNotify = createSdNotify()
+    sdNotify?.ready()
+
     // Handle shutdown
     const shutdown = async () => {
         console.log('\nShutting down...')
+        sdNotify?.stop()
         // Notify connected web clients that a restart is imminent
         if (sseManager) {
             sseManager.broadcast({
