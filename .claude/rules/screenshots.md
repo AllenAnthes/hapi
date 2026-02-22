@@ -33,7 +33,7 @@ The warm-sandbox script (auto-started with `--seed`) keeps active sessions alive
 | 2 | S3 export for datasets | offline | Gray | — | Has image message for modal testing |
 | 3 | Staging DB cluster | waiting-for-permission | Amber pulse | api-redesign (child of 1) | Pending terraform apply |
 | 4 | Fix broken image paths | offline | Gray | — | Completed/idle |
-| 5 | Convert class components | thinking + compacting | Blue pulse + subtitle | always-on | Codex flavor, worktree branch chip |
+| 5 | Convert class components to hooks | thinking + compacting | Blue pulse + subtitle | always-on | Codex flavor, worktree branch chip |
 
 **Team aggregate statuses:**
 - **api-redesign** (indigo `#6366F1`, temporary): **needs-input** (amber) — session 3 has pending requests
