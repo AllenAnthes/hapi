@@ -278,6 +278,13 @@ export default {
   'syncing.title': 'Syncing…',
   'syncing.message': 'Your data is being synchronized.',
   'reconnecting.message': 'Reconnecting...',
+  'reconnecting.restarting.title': 'Hub is restarting',
+  'reconnecting.restarting.subtitle': 'Your hub is updating. This usually takes about a minute.',
+  'reconnecting.disconnected.title': 'Connection lost',
+  'reconnecting.disconnected.subtitle': 'Trying to reconnect to the hub...',
+  'reconnecting.elapsed': '{seconds}s elapsed',
+  'reconnecting.attempt': 'attempt {n}',
+  'reconnecting.retryNow': 'Retry now',
   'pendingPrompts.message': '{n} pending prompts across {m} sessions · next: {name}',
   'pendingPrompts.open': 'Open',
 

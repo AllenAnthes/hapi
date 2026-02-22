@@ -35,6 +35,34 @@ self.addEventListener('message', (event) => {
     }
 })
 
+// Intercept navigation requests that return tunnel error pages
+// When the hub is down behind ngrok/tunwg, the tunnel returns an HTML error page
+// as a 200 response. Serve the cached app shell instead.
+registerRoute(
+    ({ request }) => request.mode === 'navigate',
+    async ({ request }) => {
+        try {
+            const response = await fetch(request)
+            const ct = response.headers.get('content-type') || ''
+            if (ct.includes('text/html') && response.ok) {
+                const text = await response.clone().text()
+                if (text.includes('ERR_NGROK') || text.includes('Tunnel not found')) {
+                    const cached = await caches.match('/index.html')
+                    if (cached) return cached
+                }
+            }
+            return response
+        } catch {
+            const cached = await caches.match('/index.html')
+            if (cached) return cached
+            return new Response('Hub is restarting...', {
+                status: 503,
+                headers: { 'Content-Type': 'text/html' }
+            })
+        }
+    }
+)
+
 precacheAndRoute(self.__WB_MANIFEST)
 
 registerRoute(
