@@ -218,6 +218,12 @@ export const SyncEventSchema = z.discriminatedUnion('type', [
             subscriptionId: z.string().optional()
         }).optional()
     }),
+    SessionEventBaseSchema.extend({
+        type: z.literal('hub:restarting'),
+        data: z.object({
+            reason: z.string().optional()
+        }).optional()
+    }),
     TeamEventBaseSchema.extend({
         type: z.literal('team:updated'),
         data: z.unknown().optional()

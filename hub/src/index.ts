@@ -297,6 +297,15 @@ async function main() {
     // Handle shutdown
     const shutdown = async () => {
         console.log('\nShutting down...')
+        // Notify connected web clients that a restart is imminent
+        if (sseManager) {
+            sseManager.broadcast({
+                type: 'hub:restarting' as const,
+                data: { reason: 'shutdown' }
+            })
+            // Brief pause to allow SSE messages to flush
+            await new Promise(resolve => setTimeout(resolve, 500))
+        }
         await tunnelManager?.stop()
         await happyBot?.stop()
         notificationHub?.stop()
