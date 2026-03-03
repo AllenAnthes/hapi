@@ -45,7 +45,7 @@ export async function runClaude(options: StartOptions = {}): Promise<void> {
     }
 
     const initialState: AgentState = {};
-    const { api, session, sessionInfo } = await bootstrapSession({
+    const { api, session, sessionInfo, compactPercent } = await bootstrapSession({
         flavor: 'claude',
         startedBy,
         workingDirectory,
@@ -351,7 +351,8 @@ export async function runClaude(options: StartOptions = {}): Promise<void> {
             claudeEnvVars: options.claudeEnvVars,
             claudeArgs: options.claudeArgs,
             startedBy,
-            hookSettingsPath
+            hookSettingsPath,
+            compactPercent
         });
     } catch (error) {
         loopError = error;

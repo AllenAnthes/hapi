@@ -11,6 +11,7 @@ import { configuration } from '@/configuration'
 import { logger } from '@/ui/logger'
 import { runtimePath } from '@/projectPath'
 import { readWorktreeEnv } from '@/utils/worktreeEnv'
+import { DEFAULT_COMPACT_PERCENT } from '@hapi/protocol'
 import packageJson from '../../package.json'
 
 export type SessionStartedBy = 'runner' | 'terminal'
@@ -29,6 +30,7 @@ export type SessionBootstrapResult = {
     sessionInfo: Session
     metadata: Metadata
     machineId: string
+    compactPercent: number
     startedBy: SessionStartedBy
     workingDirectory: string
 }
@@ -107,6 +109,12 @@ export async function bootstrapSession(options: SessionBootstrapOptions): Promis
     const agentState = options.agentState === undefined ? {} : options.agentState
 
     const api = await ApiClient.create()
+    const compactPercent = await api.getServerSettings()
+        .then((settings) => settings.compactPercent)
+        .catch((error) => {
+            logger.debug('[START] Failed to load server settings, falling back to default compactPercent', error)
+            return DEFAULT_COMPACT_PERCENT
+        })
 
     const machineId = await getMachineIdOrExit()
     await api.getOrCreateMachine({
@@ -137,6 +145,7 @@ export async function bootstrapSession(options: SessionBootstrapOptions): Promis
         sessionInfo,
         metadata,
         machineId,
+        compactPercent,
         startedBy,
         workingDirectory
     }

@@ -9,6 +9,7 @@
  */
 
 import { getSettingsFile, readSettings, writeSettings } from './settings'
+import { DEFAULT_COMPACT_PERCENT } from '@hapi/protocol'
 
 export interface ServerSettings {
     telegramBotToken: string | null
@@ -17,6 +18,7 @@ export interface ServerSettings {
     listenPort: number
     publicUrl: string
     corsOrigins: string[]
+    compactPercent: number
 }
 
 export interface ServerSettingsResult {
@@ -28,8 +30,28 @@ export interface ServerSettingsResult {
         listenPort: 'env' | 'file' | 'default'
         publicUrl: 'env' | 'file' | 'default'
         corsOrigins: 'env' | 'file' | 'default'
+        compactPercent: 'env' | 'file' | 'default'
     }
     savedToFile: boolean
+}
+
+function parseCompactPercent(value: unknown): number {
+    if (typeof value === 'number') {
+        if (Number.isFinite(value) && value > 0 && value <= 1) {
+            return value
+        }
+        throw new Error('compactPercent must be a number where 0 < value <= 1')
+    }
+
+    if (typeof value === 'string') {
+        const parsed = Number.parseFloat(value)
+        if (Number.isFinite(parsed) && parsed > 0 && parsed <= 1) {
+            return parsed
+        }
+        throw new Error('HAPI_COMPACT_PERCENT must be a number where 0 < value <= 1')
+    }
+
+    throw new Error('compactPercent must be a number where 0 < value <= 1')
 }
 
 /**
@@ -91,6 +113,7 @@ export async function loadServerSettings(dataDir: string): Promise<ServerSetting
         listenPort: 'default',
         publicUrl: 'default',
         corsOrigins: 'default',
+        compactPercent: 'default',
     }
     // telegramBotToken: env > file > null
     let telegramBotToken: string | null = null
@@ -203,6 +226,20 @@ export async function loadServerSettings(dataDir: string): Promise<ServerSetting
         corsOrigins = deriveCorsOrigins(publicUrl)
     }
 
+    // compactPercent: env > file > default
+    let compactPercent = DEFAULT_COMPACT_PERCENT
+    if (process.env.HAPI_COMPACT_PERCENT !== undefined) {
+        compactPercent = parseCompactPercent(process.env.HAPI_COMPACT_PERCENT)
+        sources.compactPercent = 'env'
+        if (settings.compactPercent === undefined) {
+            settings.compactPercent = compactPercent
+            needsSave = true
+        }
+    } else if (settings.compactPercent !== undefined) {
+        compactPercent = parseCompactPercent(settings.compactPercent)
+        sources.compactPercent = 'file'
+    }
+
     // Save settings if any new values were added
     if (needsSave) {
         await writeSettings(settingsFile, settings)
@@ -216,6 +253,7 @@ export async function loadServerSettings(dataDir: string): Promise<ServerSetting
             listenPort,
             publicUrl,
             corsOrigins,
+            compactPercent,
         },
         sources,
         savedToFile: needsSave,

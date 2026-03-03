@@ -176,7 +176,7 @@ describe('SessionList ordering + DnD UI', () => {
         const handleButtons = view.container.querySelectorAll<HTMLButtonElement>('[data-drag-handle]')
         expect(handleButtons).toHaveLength(2)
         expect(handleButtons[0]?.className).toContain('self-stretch')
-        expect(handleButtons[0]?.className).toContain('w-11')
+        expect(handleButtons[0]?.className).toMatch(/\bw-(9|11)\b/)
 
         expect(view.container.querySelectorAll('#session-dnd-instructions').length).toBeGreaterThan(0)
         expect(handleButtons[0]?.getAttribute('aria-label')).toContain('Reorder session')

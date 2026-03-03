@@ -3,6 +3,8 @@ export type {
     AgentStateCompletedRequest,
     AgentStateRequest,
     AttachmentMetadata,
+    CompactEvent,
+    CompactionStartedEvent,
     DecryptedMessage,
     Metadata,
     Session,

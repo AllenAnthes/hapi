@@ -123,6 +123,12 @@ export const CliMachinesResponseSchema = z.object({
 
 export type CliMachinesResponse = z.infer<typeof CliMachinesResponseSchema>
 
+export const CliSettingsResponseSchema = z.object({
+    compactPercent: z.number().positive().max(1)
+})
+
+export type CliSettingsResponse = z.infer<typeof CliSettingsResponseSchema>
+
 export const CliSpawnSessionResponseSchema = z.discriminatedUnion('type', [
     z.object({
         type: z.literal('success'),

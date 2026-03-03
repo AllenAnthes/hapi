@@ -1,6 +1,24 @@
 import axios from 'axios'
-import type { AgentState, CreateMachineResponse, CreateSessionResponse, RunnerState, Machine, MachineMetadata, Metadata, Session } from '@/api/types'
-import { AgentStateSchema, CreateMachineResponseSchema, CreateSessionResponseSchema, RunnerStateSchema, MachineMetadataSchema, MetadataSchema } from '@/api/types'
+import type {
+    AgentState,
+    CliSettingsResponse,
+    CreateMachineResponse,
+    CreateSessionResponse,
+    RunnerState,
+    Machine,
+    MachineMetadata,
+    Metadata,
+    Session
+} from '@/api/types'
+import {
+    AgentStateSchema,
+    CliSettingsResponseSchema,
+    CreateMachineResponseSchema,
+    CreateSessionResponseSchema,
+    RunnerStateSchema,
+    MachineMetadataSchema,
+    MetadataSchema
+} from '@/api/types'
 import { configuration } from '@/configuration'
 import { getAuthToken } from '@/api/auth'
 import { apiValidationError } from '@/utils/errorUtils'
@@ -73,6 +91,24 @@ export class ApiClient {
             permissionMode: raw.permissionMode,
             modelMode: raw.modelMode
         }
+    }
+
+    async getServerSettings(): Promise<CliSettingsResponse> {
+        const response = await axios.get<CliSettingsResponse>(
+            `${configuration.apiUrl}/cli/settings`,
+            {
+                headers: {
+                    Authorization: `Bearer ${this.token}`
+                },
+                timeout: 30_000
+            }
+        )
+
+        const parsed = CliSettingsResponseSchema.safeParse(response.data)
+        if (!parsed.success) {
+            throw apiValidationError('Invalid /cli/settings response', response)
+        }
+        return parsed.data
     }
 
     async getOrCreateMachine(opts: {

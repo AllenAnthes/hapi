@@ -16,6 +16,7 @@ import {
     TerminalResizePayloadSchema,
     TerminalWritePayloadSchema
 } from '@hapi/protocol'
+import type { CompactionStartedEvent } from '@hapi/protocol/types'
 import type {
     AgentState,
     CliSpawnSessionResponse,
@@ -711,7 +712,7 @@ export class ApiSessionClient extends EventEmitter {
         mode: SessionPermissionMode
     } | {
         type: 'ready'
-    }, id?: string): void {
+    } | CompactionStartedEvent, id?: string): void {
         const content = {
             role: 'agent',
             content: {

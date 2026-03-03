@@ -2,7 +2,10 @@ import { describe, expect, it } from 'bun:test'
 import { MODEL_MODES, PERMISSION_MODES } from './modes'
 import {
     AgentStateCompletedRequestSchema,
+    CompactionStartedEventSchema,
+    DEFAULT_COMPACT_PERCENT,
     MetadataSchema,
+    MODEL_CONTEXT_WINDOWS,
     ModelModeSchema,
     PermissionModeSchema,
     SessionSchema,
@@ -33,6 +36,39 @@ describe('ModelModeSchema', () => {
 
     it('rejects unknown model modes', () => {
         expect(ModelModeSchema.safeParse('haiku').success).toBe(false)
+    })
+})
+
+describe('Compaction protocol constants and schemas', () => {
+    it('MODEL_CONTEXT_WINDOWS keys exactly match MODEL_MODES', () => {
+        const keys = Object.keys(MODEL_CONTEXT_WINDOWS).sort()
+        const modes = [...MODEL_MODES].sort()
+        expect(keys).toEqual(modes)
+    })
+
+    it('DEFAULT_COMPACT_PERCENT is within (0, 1]', () => {
+        expect(DEFAULT_COMPACT_PERCENT).toBeGreaterThan(0)
+        expect(DEFAULT_COMPACT_PERCENT).toBeLessThanOrEqual(1)
+    })
+
+    it('CompactionStartedEventSchema accepts valid event', () => {
+        const parsed = CompactionStartedEventSchema.safeParse({
+            type: 'compaction-started',
+            preTokens: 155_000
+        })
+        expect(parsed.success).toBe(true)
+    })
+
+    it('CompactionStartedEventSchema rejects invalid payloads', () => {
+        expect(CompactionStartedEventSchema.safeParse({
+            type: 'compaction-started',
+            preTokens: -1
+        }).success).toBe(false)
+
+        expect(CompactionStartedEventSchema.safeParse({
+            type: 'compact',
+            preTokens: 100
+        }).success).toBe(false)
     })
 })
 

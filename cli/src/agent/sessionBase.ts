@@ -2,6 +2,7 @@ import { ApiClient, ApiSessionClient } from '@/lib';
 import { MessageQueue2 } from '@/utils/MessageQueue2';
 import type { Metadata, SessionModelMode, SessionPermissionMode, ThinkingActivity } from '@/api/types';
 import { logger } from '@/ui/logger';
+import { DEFAULT_COMPACT_PERCENT, MODEL_CONTEXT_WINDOWS } from '@hapi/protocol';
 
 export type AgentSessionBaseOptions<Mode> = {
     api: ApiClient;
@@ -17,6 +18,7 @@ export type AgentSessionBaseOptions<Mode> = {
     applySessionIdToMetadata: (metadata: Metadata, sessionId: string) => Metadata;
     permissionMode?: SessionPermissionMode;
     modelMode?: SessionModelMode;
+    compactPercent?: number;
 };
 
 export class AgentSessionBase<Mode> {
@@ -39,6 +41,8 @@ export class AgentSessionBase<Mode> {
     private keepAliveInterval: NodeJS.Timeout | null = null;
     protected permissionMode?: SessionPermissionMode;
     protected modelMode?: SessionModelMode;
+    protected compactPercent: number;
+    lastInputTokens: number = 0;
 
     constructor(opts: AgentSessionBaseOptions<Mode>) {
         this.path = opts.path;
@@ -54,6 +58,7 @@ export class AgentSessionBase<Mode> {
         this.mode = opts.mode ?? 'local';
         this.permissionMode = opts.permissionMode;
         this.modelMode = opts.modelMode;
+        this.compactPercent = opts.compactPercent ?? DEFAULT_COMPACT_PERCENT;
 
         this.client.keepAlive(this.thinking, this.mode, this.getKeepAliveRuntime());
         this.keepAliveInterval = setInterval(() => {
@@ -136,5 +141,36 @@ export class AgentSessionBase<Mode> {
 
     getModelMode(): SessionModelMode | undefined {
         return this.modelMode;
+    }
+
+    getCompactPercent(): number {
+        return this.compactPercent;
+    }
+
+    setCompactPercent(percent: number): void {
+        this.compactPercent = percent;
+    }
+
+    setLastInputTokens(tokens: number): void {
+        this.lastInputTokens = tokens;
+    }
+
+    shouldPreemptivelyCompact(compactPercent?: number): boolean {
+        if (this.thinkingActivity === 'compacting') {
+            return false;
+        }
+        if (!Number.isFinite(this.lastInputTokens) || this.lastInputTokens <= 0) {
+            return false;
+        }
+
+        const percent = compactPercent ?? this.compactPercent ?? DEFAULT_COMPACT_PERCENT;
+        if (!Number.isFinite(percent) || percent <= 0 || percent > 1) {
+            return false;
+        }
+
+        const modelMode = this.modelMode ?? 'default';
+        const contextWindow = MODEL_CONTEXT_WINDOWS[modelMode] ?? MODEL_CONTEXT_WINDOWS.default;
+        const threshold = contextWindow * percent;
+        return this.lastInputTokens >= threshold;
     }
 }

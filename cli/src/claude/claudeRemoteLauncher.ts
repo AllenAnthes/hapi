@@ -4,7 +4,7 @@ import { RemoteModeDisplay } from "@/ui/ink/RemoteModeDisplay";
 import { claudeRemote } from "./claudeRemote";
 import { PermissionHandler } from "./utils/permissionHandler";
 import { Future } from "@/utils/future";
-import { SDKAssistantMessage, SDKMessage, SDKUserMessage } from "./sdk";
+import { SDKAssistantMessage, SDKMessage, SDKResultMessage, SDKUserMessage } from "./sdk";
 import { formatClaudeMessageForInk } from "@/ui/messageFormatterInk";
 import { logger } from "@/ui/logger";
 import { SDKToLogConverter } from "./utils/sdkToLogConverter";
@@ -12,6 +12,7 @@ import { PLAN_FAKE_REJECT } from "./sdk/prompts";
 import { EnhancedMode } from "./loop";
 import { OutgoingMessageQueue } from "./utils/OutgoingMessageQueue";
 import type { ClaudePermissionMode } from "@hapi/protocol/types";
+import type { RawJSONLines } from "@/claude/types";
 import {
     RemoteLauncherBase,
     type RemoteLauncherDisplayContext,
@@ -118,13 +119,61 @@ class ClaudeRemoteLauncher extends RemoteLauncherBase {
 
         let planModeToolCalls = new Set<string>();
         let ongoingToolCalls = new Map<string, { parentToolCallId: string | null }>();
+        let pendingCompactSummary: string | null = null;
+        let pendingCompactBoundaryLogMessage: RawJSONLines | null = null;
+
+        const extractCompactSummaryText = (assistantMsg: SDKAssistantMessage): string | null => {
+            const content = assistantMsg.message?.content;
+            if (!Array.isArray(content)) {
+                return null;
+            }
+            const text = content
+                .filter((block): block is { type: string; text?: string } => block.type === 'text')
+                .map((block) => typeof block.text === 'string' ? block.text.trim() : '')
+                .filter((value) => value.length > 0)
+                .join('\n\n')
+                .trim();
+            return text.length > 0 ? text : null;
+        };
 
         function onMessage(message: SDKMessage) {
             formatClaudeMessageForInk(message, messageBuffer);
             permissionHandler.onMessage(message);
 
+            if (message.type === 'result' && pendingCompactBoundaryLogMessage) {
+                const resultMessage = message as SDKResultMessage;
+                const postTokens = typeof resultMessage.usage?.input_tokens === 'number'
+                    ? Math.max(0, Math.floor(resultMessage.usage.input_tokens))
+                    : undefined;
+
+                const systemMessage = pendingCompactBoundaryLogMessage as unknown as {
+                    compactMetadata?: Record<string, unknown>
+                    [key: string]: unknown
+                };
+                const compactMetadata = systemMessage.compactMetadata && typeof systemMessage.compactMetadata === 'object'
+                    ? systemMessage.compactMetadata
+                    : {};
+
+                if (postTokens !== undefined) {
+                    compactMetadata.postTokens = postTokens;
+                }
+                if (pendingCompactSummary && pendingCompactSummary.length > 0) {
+                    compactMetadata.summary = pendingCompactSummary;
+                }
+
+                systemMessage.compactMetadata = compactMetadata;
+                messageQueue.enqueue(pendingCompactBoundaryLogMessage);
+                pendingCompactBoundaryLogMessage = null;
+                pendingCompactSummary = null;
+            }
+
             if (message.type === 'assistant') {
                 let umessage = message as SDKAssistantMessage;
+                const isCompactSummaryMessage = Boolean((umessage as any).isCompactSummary)
+                    || Boolean((umessage.message as any)?.isCompactSummary);
+                if (isCompactSummaryMessage) {
+                    pendingCompactSummary = extractCompactSummaryText(umessage);
+                }
                 if (umessage.message.content && Array.isArray(umessage.message.content)) {
                     for (let c of umessage.message.content) {
                         if (c.type === 'tool_use' && (c.name === 'exit_plan_mode' || c.name === 'ExitPlanMode')) {
@@ -203,6 +252,23 @@ class ClaudeRemoteLauncher extends RemoteLauncherBase {
 
             const logMessage = sdkToLogConverter.convert(msg);
             if (logMessage) {
+                if (message.type === 'assistant') {
+                    const assistantMsg = message as SDKAssistantMessage;
+                    const isCompactSummaryMessage = Boolean((assistantMsg as any).isCompactSummary)
+                        || Boolean((assistantMsg.message as any)?.isCompactSummary);
+                    if (isCompactSummaryMessage) {
+                        return;
+                    }
+                }
+
+                if (logMessage.type === 'system' && (logMessage as any).subtype === 'compact_boundary') {
+                    if (pendingCompactBoundaryLogMessage) {
+                        messageQueue.enqueue(pendingCompactBoundaryLogMessage);
+                    }
+                    pendingCompactBoundaryLogMessage = logMessage;
+                    return;
+                }
+
                 if (logMessage.type === 'user' && logMessage.message?.content) {
                     const content = Array.isArray(logMessage.message.content)
                         ? logMessage.message.content
@@ -369,6 +435,20 @@ class ClaudeRemoteLauncher extends RemoteLauncherBase {
                             logger.debug('[remote]: Session reset');
                             session.clearSessionId();
                         },
+                        onCompactionStarted: (preTokens: number) => {
+                            session.onThinkingActivityChange('compacting');
+                            session.client.sendSessionEvent({
+                                type: 'compaction-started',
+                                preTokens
+                            });
+                        },
+                        onCompactionCompleted: () => {
+                            session.onThinkingActivityChange(null);
+                        },
+                        shouldPreemptivelyCompact: (inputTokens: number) => {
+                            session.setLastInputTokens(inputTokens);
+                            return session.shouldPreemptivelyCompact();
+                        },
                         onReady: () => {
                             if (!pending && session.queue.size() === 0) {
                                 session.client.sendSessionEvent({ type: 'ready' });
@@ -405,6 +485,12 @@ class ClaudeRemoteLauncher extends RemoteLauncherBase {
                         }
                     }
                     ongoingToolCalls.clear();
+
+                    if (pendingCompactBoundaryLogMessage) {
+                        messageQueue.enqueue(pendingCompactBoundaryLogMessage);
+                        pendingCompactBoundaryLogMessage = null;
+                        pendingCompactSummary = null;
+                    }
 
                     logger.debug('[remote]: flushing message queue');
                     await messageQueue.flush();

@@ -1,5 +1,5 @@
 import { EnhancedMode, PermissionMode } from "./loop";
-import { query, type QueryOptions as Options, type SDKMessage, type SDKSystemMessage, AbortError, SDKUserMessage } from '@/claude/sdk'
+import { query, type QueryOptions as Options, type SDKMessage, type SDKResultMessage, type SDKSystemMessage, AbortError, SDKUserMessage } from '@/claude/sdk'
 import { claudeCheckSession } from "./utils/claudeCheckSession";
 import { join } from 'node:path';
 import { parseSpecialCommand } from "@/parsers/specialCommands";
@@ -35,7 +35,10 @@ export async function claudeRemote(opts: {
     onThinkingChange?: (thinking: boolean) => void,
     onMessage: (message: SDKMessage) => void,
     onCompletionEvent?: (message: string) => void,
-    onSessionReset?: () => void
+    onSessionReset?: () => void,
+    onCompactionStarted?: (preTokens: number) => void,
+    onCompactionCompleted?: () => void,
+    shouldPreemptivelyCompact?: (inputTokens: number) => boolean
 }) {
 
     // Check if session is valid
@@ -149,6 +152,7 @@ export async function claudeRemote(opts: {
 
     // Track thinking state
     let thinking = false;
+    let pendingCompactBoundaryPreTokens: number | null = null;
     const updateThinking = (newThinking: boolean) => {
         if (thinking !== newThinking) {
             thinking = newThinking;
@@ -203,10 +207,34 @@ export async function claudeRemote(opts: {
                 }
             }
 
+            if (message.type === 'system' && message.subtype === 'compact_boundary') {
+                const compactMetadata = (message as SDKSystemMessage & { compactMetadata?: { preTokens?: unknown } }).compactMetadata;
+                const preTokens = typeof compactMetadata?.preTokens === 'number' && Number.isFinite(compactMetadata.preTokens)
+                    ? Math.max(0, Math.floor(compactMetadata.preTokens))
+                    : 0;
+
+                pendingCompactBoundaryPreTokens = preTokens;
+                if (!isCompactCommand) {
+                    opts.onCompactionStarted?.(preTokens);
+                }
+            }
+
             // Handle result messages
             if (message.type === 'result') {
+                const resultMessage = message as SDKResultMessage
+                const inputTokens = typeof resultMessage.usage?.input_tokens === 'number'
+                    ? resultMessage.usage.input_tokens
+                    : null
+
                 updateThinking(false);
                 logger.debug('[claudeRemote] Result received, exiting claudeRemote');
+
+                let completedCompactionThisResult = false
+                if (pendingCompactBoundaryPreTokens !== null) {
+                    pendingCompactBoundaryPreTokens = null
+                    completedCompactionThisResult = true
+                    opts.onCompactionCompleted?.()
+                }
 
                 // Send completion messages
                 if (isCompactCommand) {
@@ -214,7 +242,28 @@ export async function claudeRemote(opts: {
                     if (opts.onCompletionEvent) {
                         opts.onCompletionEvent('Compaction completed');
                     }
+                    if (!completedCompactionThisResult) {
+                        opts.onCompactionCompleted?.()
+                    }
                     isCompactCommand = false;
+                }
+
+                if (!isCompactCommand && inputTokens !== null && opts.shouldPreemptivelyCompact?.(inputTokens)) {
+                    logger.debug(`[claudeRemote] Preemptive compaction triggered at ${inputTokens} tokens`);
+                    isCompactCommand = true;
+                    opts.onCompactionStarted?.(inputTokens);
+                    if (opts.onCompletionEvent) {
+                        opts.onCompletionEvent('Compaction started');
+                    }
+                    updateThinking(true);
+                    messages.push({
+                        type: 'user',
+                        message: {
+                            role: 'user',
+                            content: '/compact'
+                        },
+                    });
+                    continue;
                 }
 
                 // Send ready event

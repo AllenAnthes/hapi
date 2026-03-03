@@ -363,6 +363,12 @@ export function createCliRoutes(getSyncEngine: () => SyncEngine | null, store: S
         return c.json({ sessions: summaries })
     })
 
+    app.get('/settings', (c) => {
+        return c.json({
+            compactPercent: configuration.compactPercent
+        })
+    })
+
     // --- Team CRUD ---
 
     app.post('/teams', async (c) => {

@@ -40,6 +40,7 @@ export class Session extends AgentSessionBase<EnhancedMode> {
         hookSettingsPath: string;
         permissionMode?: PermissionMode;
         modelMode?: SessionModelMode;
+        compactPercent?: number;
     }) {
         super({
             api: opts.api,
@@ -57,7 +58,8 @@ export class Session extends AgentSessionBase<EnhancedMode> {
                 claudeSessionId: sessionId
             }),
             permissionMode: opts.permissionMode,
-            modelMode: opts.modelMode
+            modelMode: opts.modelMode,
+            compactPercent: opts.compactPercent
         });
 
         this.claudeEnvVars = opts.claudeEnvVars;

@@ -218,6 +218,76 @@ describe('normalizeAgentRecord', () => {
         })
     })
 
+    it('captures compact summary messages as compaction-summary events', () => {
+        const normalized = normalizeAgentRecord(
+            'msg-compact-summary',
+            null,
+            900,
+            {
+                type: 'output',
+                data: {
+                    type: 'assistant',
+                    isCompactSummary: true,
+                    message: {
+                        content: [
+                            { type: 'text', text: 'Summary of the conversation so far.' }
+                        ]
+                    }
+                }
+            }
+        )
+
+        expect(normalized).toEqual({
+            id: 'msg-compact-summary',
+            localId: null,
+            createdAt: 900,
+            role: 'event',
+            content: {
+                type: 'compaction-summary',
+                summary: 'Summary of the conversation so far.'
+            },
+            isSidechain: false,
+            meta: undefined
+        })
+    })
+
+    it('normalizes compact_boundary with optional postTokens and summary', () => {
+        const normalized = normalizeAgentRecord(
+            'msg-compact-boundary',
+            null,
+            901,
+            {
+                type: 'output',
+                data: {
+                    type: 'system',
+                    subtype: 'compact_boundary',
+                    compactMetadata: {
+                        trigger: 'auto',
+                        preTokens: 165000,
+                        postTokens: 18000,
+                        summary: 'Compaction summary text'
+                    }
+                }
+            }
+        )
+
+        expect(normalized).toEqual({
+            id: 'msg-compact-boundary',
+            localId: null,
+            createdAt: 901,
+            role: 'event',
+            content: {
+                type: 'compact',
+                trigger: 'auto',
+                preTokens: 165000,
+                postTokens: 18000,
+                summary: 'Compaction summary text'
+            },
+            isSidechain: false,
+            meta: undefined
+        })
+    })
+
     it('normalizes tool_result permissions when valid', () => {
         const normalized = normalizeAgentRecord(
             'msg-tool-valid',

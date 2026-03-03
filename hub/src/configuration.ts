@@ -13,6 +13,7 @@
  * - HAPI_LISTEN_PORT: Port for HTTP service (default: 3006)
  * - HAPI_PUBLIC_URL: Public URL for external access (e.g., Telegram Mini App)
  * - CORS_ORIGINS: Comma-separated CORS origins
+ * - HAPI_COMPACT_PERCENT: Preemptive compaction threshold percent (0 < value <= 1, default 0.80)
  * - HAPI_RELAY_API: Relay API domain for tunwg (default: relay.hapi.run)
  * - HAPI_RELAY_AUTH: Relay auth key for tunwg (auto-generated if not set)
  * - HAPI_RELAY_FORCE_TCP: Force TCP relay mode when UDP is unavailable (true/1)
@@ -37,6 +38,7 @@ export interface ConfigSources {
     listenPort: ConfigSource
     publicUrl: ConfigSource
     corsOrigins: ConfigSource
+    compactPercent: ConfigSource
     cliApiToken: 'env' | 'file' | 'generated'
 }
 
@@ -80,6 +82,9 @@ class Configuration {
     /** Allowed CORS origins for Mini App + Socket.IO (comma-separated env override) */
     public readonly corsOrigins: string[]
 
+    /** Preemptive compaction threshold percent (0 < x <= 1) */
+    public readonly compactPercent: number
+
     /** Sources of each configuration value */
     public readonly sources: ConfigSources
 
@@ -102,6 +107,7 @@ class Configuration {
         this.listenPort = serverSettings.listenPort
         this.publicUrl = serverSettings.publicUrl
         this.corsOrigins = serverSettings.corsOrigins
+        this.compactPercent = serverSettings.compactPercent
 
         // CLI API token - will be set by _setCliApiToken() before create() returns
         this.cliApiToken = ''

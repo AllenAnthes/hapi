@@ -76,13 +76,24 @@ export function getEventPresentation(event: AgentEvent): EventPresentation {
         const ms = typeof event.durationMs === 'number' ? event.durationMs : 0
         return { icon: '⏱️', text: `Turn: ${formatDuration(ms)}` }
     }
+    if (event.type === 'compaction-started') {
+        return { icon: '⏳', text: 'Compacting context...' }
+    }
     if (event.type === 'microcompact') {
         const saved = typeof event.tokensSaved === 'number' ? event.tokensSaved : 0
         const formatted = saved >= 1000 ? `${Math.round(saved / 1000)}K` : String(saved)
         return { icon: '📦', text: `Context compacted (saved ${formatted} tokens)` }
     }
     if (event.type === 'compact') {
+        const preTokens = typeof event.preTokens === 'number' ? event.preTokens : null
+        const postTokens = typeof event.postTokens === 'number' ? event.postTokens : null
+        if (preTokens !== null && postTokens !== null) {
+            return { icon: '📦', text: `Context compacted · ${Math.round(preTokens / 1000)}K → ${Math.round(postTokens / 1000)}K` }
+        }
         return { icon: '📦', text: 'Context compacted — conversation history was summarized to free up space' }
+    }
+    if (event.type === 'compaction-summary') {
+        return { icon: null, text: typeof event.summary === 'string' ? event.summary : '' }
     }
     try {
         return { icon: null, text: JSON.stringify(event) }

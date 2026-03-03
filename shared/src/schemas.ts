@@ -128,6 +128,36 @@ export const THINKING_ACTIVITIES = ['compacting'] as const
 export const ThinkingActivitySchema = z.enum(THINKING_ACTIVITIES)
 export type ThinkingActivity = z.infer<typeof ThinkingActivitySchema>
 
+/** Known model context windows (tokens) keyed by model mode */
+export const MODEL_CONTEXT_WINDOWS: Record<(typeof MODEL_MODES)[number], number> = {
+    default: 200_000,
+    sonnet: 200_000,
+    opus: 200_000
+}
+
+/** Conservative fallback context window (tokens) */
+export const DEFAULT_CONTEXT_WINDOW = 200_000
+
+/** Default compaction trigger threshold as percent of context window */
+export const DEFAULT_COMPACT_PERCENT = 0.80
+
+export const CompactionStartedEventSchema = z.object({
+    type: z.literal('compaction-started'),
+    preTokens: z.number().int().nonnegative()
+})
+
+export type CompactionStartedEvent = z.infer<typeof CompactionStartedEventSchema>
+
+export const CompactEventSchema = z.object({
+    type: z.literal('compact'),
+    trigger: z.string(),
+    preTokens: z.number().int().nonnegative(),
+    postTokens: z.number().int().nonnegative().optional(),
+    summary: z.string().optional()
+})
+
+export type CompactEvent = z.infer<typeof CompactEventSchema>
+
 export const SessionSchema = z.object({
     id: z.string(),
     namespace: z.string(),

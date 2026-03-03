@@ -37,6 +37,7 @@ interface LoopOptions {
     allowedTools?: string[]
     onSessionReady?: (session: Session) => void
     hookSettingsPath: string
+    compactPercent?: number
 }
 
 export async function loop(opts: LoopOptions) {
@@ -65,7 +66,8 @@ export async function loop(opts: LoopOptions) {
         startingMode,
         hookSettingsPath: opts.hookSettingsPath,
         permissionMode: opts.permissionMode ?? 'default',
-        modelMode
+        modelMode,
+        compactPercent: opts.compactPercent
     });
 
     await runLocalRemoteSession({

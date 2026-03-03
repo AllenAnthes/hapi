@@ -1,4 +1,5 @@
 import type { ModelMode } from '@/types/api'
+import { MODEL_CONTEXT_WINDOWS } from '@hapi/protocol'
 
 /**
  * Context windows vary by model/provider and may change over time.
@@ -11,13 +12,6 @@ import type { ModelMode } from '@/types/api'
  * and use this only as a fallback.
  */
 const CONTEXT_HEADROOM_TOKENS = 10_000
-
-const MODEL_CONTEXT_WINDOWS: Record<ModelMode, number> = {
-    // Claude Code modes used in this app; currently treated as ~200k context.
-    default: 200_000,
-    sonnet: 200_000,
-    opus: 200_000
-}
 
 export function getContextBudgetTokens(modelMode: ModelMode | undefined): number | null {
     const mode: ModelMode = modelMode ?? 'default'

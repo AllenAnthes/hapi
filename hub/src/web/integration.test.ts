@@ -1458,6 +1458,24 @@ describe('web integration routes', () => {
         }
     })
 
+    it('GET /cli/settings returns compactPercent from hub configuration', async () => {
+        const ctx = createTestContext()
+
+        try {
+            const token = `${CLI_TOKEN}:alpha`
+            const response = await ctx.app.request('/cli/settings', {
+                headers: cliHeaders(token)
+            })
+
+            expect(response.status).toBe(200)
+            const body = await response.json() as { compactPercent: number }
+            expect(body.compactPercent).toBeGreaterThan(0)
+            expect(body.compactPercent).toBeLessThanOrEqual(1)
+        } finally {
+            ctx.stop()
+        }
+    })
+
     // --- CLI Team CRUD ---
 
     it('POST /cli/teams creates a team and GET /cli/teams lists it', async () => {

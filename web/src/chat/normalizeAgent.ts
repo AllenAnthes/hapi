@@ -182,7 +182,7 @@ export function isSkippableAgentContent(content: unknown): boolean {
     if (!isObject(content) || content.type !== 'output') return false
     const data = isObject(content.data) ? content.data : null
     if (!data) return false
-    return Boolean(data.isMeta) || Boolean(data.isCompactSummary)
+    return Boolean(data.isMeta)
 }
 
 export function isCodexContent(content: unknown): boolean {
@@ -202,9 +202,36 @@ export function normalizeAgentRecord(
         const data = isObject(content.data) ? content.data : null
         if (!data || typeof data.type !== 'string') return null
 
-        // Skip meta/compact-summary messages (parity with hapi-app)
+        // Skip meta messages
         if (data.isMeta) return null
-        if (data.isCompactSummary) return null
+        if (data.isCompactSummary) {
+            const message = isObject(data.message) ? data.message : null
+            const modelContent = message?.content
+            const summary = (() => {
+                if (typeof modelContent === 'string') return modelContent.trim()
+                if (!Array.isArray(modelContent)) return ''
+                const text = modelContent
+                    .filter((block): block is Record<string, unknown> => isObject(block) && block.type === 'text')
+                    .map((block) => asString(block.text) ?? '')
+                    .filter((value) => value.trim().length > 0)
+                    .join('\n\n')
+                    .trim()
+                return text
+            })()
+            if (!summary) return null
+            return {
+                id: messageId,
+                localId,
+                createdAt,
+                role: 'event',
+                content: {
+                    type: 'compaction-summary',
+                    summary
+                },
+                isSidechain: false,
+                meta
+            }
+        }
 
         if (data.type === 'assistant') {
             return normalizeAssistantOutput(messageId, localId, createdAt, data, meta)
@@ -280,7 +307,9 @@ export function normalizeAgentRecord(
                 content: {
                     type: 'compact',
                     trigger: asString(metadata?.trigger) ?? 'auto',
-                    preTokens: asNumber(metadata?.preTokens) ?? 0
+                    preTokens: asNumber(metadata?.preTokens) ?? 0,
+                    postTokens: asNumber(metadata?.postTokens) ?? undefined,
+                    summary: asString(metadata?.summary) ?? undefined
                 },
                 isSidechain: false,
                 meta

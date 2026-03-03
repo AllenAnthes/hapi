@@ -18,6 +18,7 @@ export interface Settings {
     listenPort?: number
     publicUrl?: string
     corsOrigins?: string[]
+    compactPercent?: number
     // Relay tunnel authentication key (auto-generated)
     relayAuthKey?: string
     // Legacy field names (for migration, read-only)

@@ -25,8 +25,10 @@ export type AgentEvent =
     | { type: 'ready' }
     | { type: 'api-error'; retryAttempt: number; maxRetries: number; error: unknown }
     | { type: 'turn-duration'; durationMs: number }
+    | { type: 'compaction-started'; preTokens: number }
     | { type: 'microcompact'; trigger: string; preTokens: number; tokensSaved: number }
-    | { type: 'compact'; trigger: string; preTokens: number }
+    | { type: 'compact'; trigger: string; preTokens: number; postTokens?: number; summary?: string }
+    | { type: 'compaction-summary'; summary: string }
     | ({ type: string } & Record<string, unknown>)
 
 export type ToolResultPermission = {

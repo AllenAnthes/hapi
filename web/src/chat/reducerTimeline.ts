@@ -17,6 +17,7 @@ export function reduceTimeline(
     const blocks: ChatBlock[] = []
     const toolBlocksById = new Map<string, ToolCallBlock>()
     let hasReadyEvent = false
+    let pendingCompactionSummary: string | null = null
 
     for (const msg of messages) {
         if (msg.role === 'event') {
@@ -24,14 +25,35 @@ export function reduceTimeline(
                 hasReadyEvent = true
                 continue
             }
+
+            if (msg.content.type === 'compaction-summary') {
+                pendingCompactionSummary = typeof msg.content.summary === 'string' ? msg.content.summary : null
+                continue
+            }
+
+            let eventContent = msg.content
+            if (eventContent.type === 'compact') {
+                if (!eventContent.summary && pendingCompactionSummary) {
+                    eventContent = {
+                        ...eventContent,
+                        summary: pendingCompactionSummary
+                    }
+                }
+                pendingCompactionSummary = null
+            }
+
             blocks.push({
                 kind: 'agent-event',
                 id: msg.id,
                 createdAt: msg.createdAt,
-                event: msg.content,
+                event: eventContent,
                 meta: msg.meta
             })
             continue
+        }
+
+        if (pendingCompactionSummary) {
+            pendingCompactionSummary = null
         }
 
         const event = parseMessageAsEvent(msg)
