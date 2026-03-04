@@ -1,6 +1,6 @@
 ---
 description: Testing conventions and patterns
-globs: "**/*.test.*, **/*.spec.*"
+globs: "**/*.test.*, **/*.spec.*, web/src/components/**, web/src/routes/**"
 ---
 
 # Testing Conventions

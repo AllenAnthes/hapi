@@ -27,6 +27,10 @@ File-based routes under `src/routes/`. Programmatic route creation in `router.ts
 - Realtime: Socket.io client (`socket.io-client`)
 - SSE: Custom `useSSE()` hook for pub/sub events
 
+## Testing Requirements
+
+After any UI change involving user interaction (clicks, navigation, dialogs, drag-and-drop, gestures, responsive layout), write Playwright E2E tests. See `.claude/rules/testing.md` for the full guide, sandbox boilerplate, and quality rules. Component-level vitest tests alone are not sufficient for interactive behavior.
+
 ## File Organization
 
 ```

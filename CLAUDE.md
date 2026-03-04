@@ -31,6 +31,8 @@ bun run test:cli           # cli only
 bun run typecheck          # tsc --noEmit across all packages
 ```
 
+**E2E tests are required** for any web UI change involving user interaction. See `.claude/rules/testing.md` for when to write them, the sandbox boilerplate, and quality rules. Vitest component tests alone are not sufficient for interactive behavior.
+
 ## Pull Requests
 
 A reviewer should be able to understand, evaluate, and approve a PR from its description alone — without reading the diff first. Every PR opened by an agent MUST use the format below with `gh pr create --body`.
