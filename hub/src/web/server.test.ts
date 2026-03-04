@@ -1,33 +1,12 @@
-import { describe, it, expect, beforeEach, afterEach, beforeAll, afterAll } from 'bun:test'
+import { describe, it, expect, beforeEach } from 'bun:test'
 import { createWebApp } from './server'
 import { Store } from '../store'
-import { rmSync, mkdirSync } from 'node:fs'
-import { join } from 'node:path'
-import { createConfiguration, _resetConfigurationForTesting } from '../configuration'
 
 describe('Web Server Security Headers', () => {
     let store: Store
-    const testDir = join(process.cwd(), 'test-data-' + Date.now())
-    const dbPath = join(testDir, 'test-security-headers.db')
-
-    beforeAll(async () => {
-        mkdirSync(testDir, { recursive: true })
-        process.env.HAPI_HOME = testDir
-        _resetConfigurationForTesting()
-        await createConfiguration()
-    })
-
-    afterAll(() => {
-        _resetConfigurationForTesting()
-        try {
-            rmSync(testDir, { recursive: true, force: true })
-        } catch {
-            // ignore
-        }
-    })
 
     beforeEach(() => {
-        store = new Store(dbPath)
+        store = new Store(':memory:')
     })
 
     it('should have security headers on /health endpoint', async () => {
