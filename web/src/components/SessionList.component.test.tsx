@@ -165,7 +165,7 @@ describe('SessionList ordering + DnD UI', () => {
         expect(getRenderedSessionOrder(view.container)).toEqual(['g1-a', 'g1-b', 'g2-a'])
     })
 
-    it('renders always-visible drag handles with aria labels + instructions', () => {
+    it('makes entire session row draggable (no separate drag handle)', () => {
         const sessions = [
             makeSession({ id: 'alpha', sortOrder: 'a', metadata: { path: '/repo', name: 'Alpha' }, active: true }),
             makeSession({ id: 'beta', sortOrder: 'b', metadata: { path: '/repo', name: 'Beta' }, active: true }),
@@ -173,30 +173,140 @@ describe('SessionList ordering + DnD UI', () => {
 
         const view = renderSessionList(buildProps({ sessions }))
 
-        const handleButtons = view.container.querySelectorAll<HTMLButtonElement>('[data-drag-handle]')
-        expect(handleButtons).toHaveLength(2)
-        expect(handleButtons[0]?.className).toContain('self-stretch')
-        expect(handleButtons[0]?.className).toMatch(/\bw-(9|11)\b/)
+        expect(view.container.querySelectorAll('[data-drag-handle]')).toHaveLength(0)
 
-        expect(view.container.querySelectorAll('#session-dnd-instructions').length).toBeGreaterThan(0)
-        expect(handleButtons[0]?.getAttribute('aria-label')).toContain('Reorder session')
+        const draggableItems = view.container.querySelectorAll('[data-session-dragging]')
+        expect(draggableItems).toHaveLength(2)
+    })
+})
+
+describe('SessionList inline action buttons', () => {
+    beforeEach(() => {
+        localStorage.clear()
+
+        Object.defineProperty(window, 'matchMedia', {
+            writable: true,
+            value: vi.fn().mockImplementation((query: string) => ({
+                matches: false,
+                media: query,
+                onchange: null,
+                addListener: vi.fn(),
+                removeListener: vi.fn(),
+                addEventListener: vi.fn(),
+                removeEventListener: vi.fn(),
+                dispatchEvent: vi.fn()
+            }))
+        })
+
+        if (!globalThis.ResizeObserver) {
+            class ResizeObserverMock {
+                observe() {}
+                unobserve() {}
+                disconnect() {}
+            }
+
+            Object.defineProperty(globalThis, 'ResizeObserver', {
+                writable: true,
+                value: ResizeObserverMock
+            })
+        }
     })
 
-    it('disables dnd handles in selection mode', async () => {
+    it('renders rename and delete buttons on each session row', () => {
         const sessions = [
-            makeSession({ id: 'alpha', sortOrder: 'a', metadata: { path: '/repo', name: 'Alpha' }, active: true }),
-            makeSession({ id: 'beta', sortOrder: 'b', metadata: { path: '/repo', name: 'Beta' }, active: true }),
+            makeSession({ id: 'sess-a', sortOrder: 'a', metadata: { path: '/repo', name: 'Alpha' }, active: true }),
+            makeSession({ id: 'sess-b', sortOrder: 'b', metadata: { path: '/repo', name: 'Beta' }, active: false }),
         ]
 
         const view = renderSessionList(buildProps({ sessions }))
 
-        fireEvent.click(getSelectionModeButton(view.container))
+        for (const id of ['sess-a', 'sess-b']) {
+            const row = view.container.querySelector<HTMLElement>(`[data-session-id="${id}"]`)
+            expect(row).toBeTruthy()
+            const renameBtn = within(row!).getByRole('button', { name: 'Rename' })
+            expect(renameBtn).toBeInTheDocument()
+        }
+    })
+
+    it('shows archive label for active sessions, delete for inactive', () => {
+        const sessions = [
+            makeSession({ id: 'active-sess', sortOrder: 'a', metadata: { path: '/repo', name: 'Active' }, active: true }),
+            makeSession({ id: 'inactive-sess', sortOrder: 'b', metadata: { path: '/repo', name: 'Inactive' }, active: false }),
+        ]
+
+        const view = renderSessionList(buildProps({ sessions }))
+
+        const activeRow = view.container.querySelector<HTMLElement>('[data-session-id="active-sess"]')!
+        expect(within(activeRow).getByRole('button', { name: 'Archive' })).toBeInTheDocument()
+
+        const inactiveRow = view.container.querySelector<HTMLElement>('[data-session-id="inactive-sess"]')!
+        expect(within(inactiveRow).getByRole('button', { name: 'Delete' })).toBeInTheDocument()
+    })
+
+    it('opens rename dialog when rename button is clicked', async () => {
+        const sessions = [
+            makeSession({ id: 'sess-rename', sortOrder: 'a', metadata: { path: '/repo', name: 'My Session' }, active: true }),
+        ]
+
+        const view = renderSessionList(buildProps({ sessions }))
+        const row = view.container.querySelector<HTMLElement>('[data-session-id="sess-rename"]')!
+        const renameBtn = within(row).getByRole('button', { name: 'Rename' })
+
+        fireEvent.click(renameBtn)
 
         await waitFor(() => {
-            const handles = view.container.querySelectorAll<HTMLButtonElement>('[data-drag-handle]')
-            expect(handles[0]).toBeDisabled()
-            expect(handles[1]).toBeDisabled()
+            expect(screen.getByRole('dialog')).toBeInTheDocument()
+            expect(screen.getByDisplayValue('My Session')).toBeInTheDocument()
         })
+    })
+
+    it('opens archive dialog when trash button is clicked on active session', async () => {
+        const sessions = [
+            makeSession({ id: 'sess-archive', sortOrder: 'a', metadata: { path: '/repo', name: 'Active Session' }, active: true }),
+        ]
+
+        const view = renderSessionList(buildProps({ sessions }))
+        const row = view.container.querySelector<HTMLElement>('[data-session-id="sess-archive"]')!
+        const archiveBtn = within(row).getByRole('button', { name: 'Archive' })
+
+        fireEvent.click(archiveBtn)
+
+        await waitFor(() => {
+            const dialog = screen.getByRole('dialog')
+            expect(dialog).toBeInTheDocument()
+            expect(dialog).toHaveTextContent('Archive')
+        })
+    })
+
+    it('opens delete dialog when trash button is clicked on inactive session', async () => {
+        const sessions = [
+            makeSession({ id: 'sess-active', sortOrder: 'a', metadata: { path: '/repo', name: 'Active' }, active: true }),
+            makeSession({ id: 'sess-delete', sortOrder: 'b', metadata: { path: '/repo', name: 'Old Session' }, active: false }),
+        ]
+
+        const view = renderSessionList(buildProps({ sessions }))
+        const row = view.container.querySelector<HTMLElement>('[data-session-id="sess-delete"]')!
+        const deleteBtn = within(row).getByRole('button', { name: 'Delete' })
+
+        fireEvent.click(deleteBtn)
+
+        await waitFor(() => {
+            const dialog = screen.getByRole('dialog')
+            expect(dialog).toBeInTheDocument()
+            expect(dialog).toHaveTextContent('Delete')
+        })
+    })
+
+    it('does not have kebab menu or SessionActionMenu popup', () => {
+        const sessions = [
+            makeSession({ id: 'sess-no-kebab', sortOrder: 'a', metadata: { path: '/repo', name: 'Test' }, active: true }),
+        ]
+
+        const view = renderSessionList(buildProps({ sessions }))
+        const row = view.container.querySelector<HTMLElement>('[data-session-id="sess-no-kebab"]')!
+
+        expect(within(row).queryByRole('button', { name: 'More options' })).not.toBeInTheDocument()
+        expect(within(row).queryByRole('button', { name: /more/i })).not.toBeInTheDocument()
     })
 })
 

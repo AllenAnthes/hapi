@@ -37,7 +37,6 @@ import {
     type SessionSortOrderUpdate
 } from '@/hooks/mutations/useSessionActions'
 import { ClearInactiveDialog } from '@/components/ClearInactiveDialog'
-import { SessionActionMenu } from '@/components/SessionActionMenu'
 import { RenameSessionDialog } from '@/components/RenameSessionDialog'
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
 import {
@@ -517,6 +516,25 @@ function PlusIcon(props: { className?: string }) {
     )
 }
 
+function EditIcon(props: { className?: string }) {
+    return (
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={props.className}>
+            <path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z" />
+            <path d="m15 5 4 4" />
+        </svg>
+    )
+}
+
+function TrashIcon(props: { className?: string }) {
+    return (
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={props.className}>
+            <path d="M3 6h18" />
+            <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6" />
+            <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2" />
+        </svg>
+    )
+}
+
 function MoreVerticalIcon(props: { className?: string }) {
     return (
         <svg
@@ -593,30 +611,6 @@ function ChevronIcon(props: { className?: string; collapsed?: boolean }) {
             className={`${props.className ?? ''} transition-transform duration-200 ${props.collapsed ? '' : 'rotate-90'}`}
         >
             <polyline points="9 18 15 12 9 6" />
-        </svg>
-    )
-}
-
-function GripVerticalIcon(props: { className?: string }) {
-    return (
-        <svg
-            xmlns="http://www.w3.org/2000/svg"
-            width="20"
-            height="20"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            className={props.className}
-        >
-            <circle cx="9" cy="5" r="1" />
-            <circle cx="9" cy="12" r="1" />
-            <circle cx="9" cy="19" r="1" />
-            <circle cx="15" cy="5" r="1" />
-            <circle cx="15" cy="12" r="1" />
-            <circle cx="15" cy="19" r="1" />
         </svg>
     )
 }
@@ -723,8 +717,6 @@ function SessionItem(props: {
     selectedForBulk: boolean
     unread?: boolean
     dndEnabled: boolean
-    dragInstructionsId: string
-    dragHandleBindings: Pick<ReturnType<typeof useSortable>, 'attributes' | 'listeners' | 'setActivatorNodeRef'>
     dragging: boolean
     dropTarget: boolean
     dragInProgress: boolean
@@ -744,8 +736,6 @@ function SessionItem(props: {
         selectedForBulk,
         unread = false,
         dndEnabled,
-        dragInstructionsId,
-        dragHandleBindings,
         dragging,
         dropTarget,
         dragInProgress
@@ -755,8 +745,6 @@ function SessionItem(props: {
     const SWIPE_TRIGGER_PX = 72
     const TRACKPAD_SWIPE_MULTIPLIER = 0.45
     const TRACKPAD_TRIGGER_PX = 92
-    const [menuOpen, setMenuOpen] = useState(false)
-    const [menuAnchorPoint, setMenuAnchorPoint] = useState<{ x: number; y: number }>({ x: 0, y: 0 })
     const [renameOpen, setRenameOpen] = useState(false)
     const [archiveOpen, setArchiveOpen] = useState(false)
     const [deleteOpen, setDeleteOpen] = useState(false)
@@ -782,19 +770,13 @@ function SessionItem(props: {
     )
 
     const longPressHandlers = useLongPress({
-        onLongPress: (point) => {
+        onLongPress: () => {
             if (disableGestureActions) return
-            if (selectionMode) {
-                onToggleSelected(s.id)
-                return
-            }
             haptic.impact('medium')
-            setMenuAnchorPoint(point)
-            setMenuOpen(true)
+            onToggleSelected(s.id)
         },
         onClick: () => {
             if (disableGestureActions) return
-            if (menuOpen) return
             if (selectionMode) {
                 onToggleSelected(s.id)
                 return
@@ -931,25 +913,6 @@ function SessionItem(props: {
                 >
                     <button
                         type="button"
-                        ref={dragHandleBindings.setActivatorNodeRef}
-                        {...dragHandleBindings.attributes}
-                        {...dragHandleBindings.listeners}
-                        disabled={!dndEnabled}
-                        data-drag-handle={s.id}
-                        className={`inline-flex w-9 shrink-0 self-stretch items-center justify-center border-r text-[var(--app-hint)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--app-link)] ${dndEnabled ? 'cursor-grab active:cursor-grabbing hover:text-[var(--app-fg)]' : 'cursor-not-allowed opacity-50'}`}
-                        style={{ borderColor: `var(${providerDisplay.colorVar})` }}
-                        aria-label={dndEnabled
-                            ? t('session.dragHandle.label', { name: sessionName })
-                            : t('session.dragHandle.disabled')}
-                        aria-describedby={dragInstructionsId}
-                        title={dndEnabled
-                            ? t('session.dragHandle.label', { name: sessionName })
-                            : t('session.dragHandle.disabled')}
-                    >
-                        <GripVerticalIcon className="h-4 w-4" />
-                    </button>
-                    <button
-                        type="button"
                         {...longPressHandlers}
                         className="flex-1 min-w-0 flex flex-col gap-0.5 px-2.5 py-1.5 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--app-link)]"
                         aria-current={selected ? 'page' : undefined}
@@ -1031,33 +994,29 @@ function SessionItem(props: {
                             ) : null}
                         </div>
                     </button>
-                    <button
-                        type="button"
-                        className="px-2 shrink-0 flex items-center justify-center text-[var(--app-hint)] hover:text-[var(--app-fg)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--app-link)]"
-                        onClick={(e) => {
-                            e.stopPropagation()
-                            const rect = e.currentTarget.getBoundingClientRect()
-                            setMenuAnchorPoint({ x: rect.left, y: rect.bottom })
-                            setMenuOpen(true)
-                        }}
-                        aria-label={t('session.more')}
-                        aria-haspopup="true"
-                        aria-expanded={menuOpen}
-                    >
-                        <MoreVerticalIcon className="h-5 w-5" />
-                    </button>
+                    <div className="flex shrink-0 items-center">
+                        <button
+                            type="button"
+                            className="inline-flex h-full w-7 items-center justify-center text-[var(--app-hint)] hover:text-[var(--app-fg)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--app-link)] transition-colors"
+                            onClick={(e) => { e.stopPropagation(); setRenameOpen(true) }}
+                            aria-label={t('session.action.rename')}
+                        >
+                            <EditIcon className="h-3.5 w-3.5" />
+                        </button>
+                        <button
+                            type="button"
+                            className="inline-flex h-full w-7 items-center justify-center text-[var(--app-hint)] hover:text-red-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--app-link)] transition-colors"
+                            onClick={(e) => {
+                                e.stopPropagation()
+                                if (s.active) { setArchiveOpen(true) } else { setDeleteOpen(true) }
+                            }}
+                            aria-label={s.active ? t('session.action.archive') : t('session.action.delete')}
+                        >
+                            <TrashIcon className="h-3.5 w-3.5" />
+                        </button>
+                    </div>
                 </div>
             </div>
-
-            <SessionActionMenu
-                isOpen={menuOpen}
-                onClose={() => setMenuOpen(false)}
-                sessionActive={s.active}
-                onRename={() => setRenameOpen(true)}
-                onArchive={() => setArchiveOpen(true)}
-                onDelete={() => setDeleteOpen(true)}
-                anchorPoint={menuAnchorPoint}
-            />
 
             <RenameSessionDialog
                 isOpen={renameOpen}
@@ -1097,7 +1056,7 @@ function SessionItem(props: {
 type SessionItemProps = Parameters<typeof SessionItem>[0]
 
 function SortableSessionItem(
-    props: Omit<SessionItemProps, 'dragHandleBindings' | 'dragging' | 'dropTarget'>
+    props: Omit<SessionItemProps, 'dragging' | 'dropTarget'>
 ) {
     const sortable = useSortable({
         id: props.session.id,
@@ -1112,9 +1071,12 @@ function SortableSessionItem(
     return (
         <div
             ref={sortable.setNodeRef}
+            {...sortable.attributes}
+            {...(props.dndEnabled ? sortable.listeners : {})}
             style={{
                 transform: draggingTransform,
                 transition: sortable.transition,
+                cursor: props.dndEnabled ? (sortable.isDragging ? 'grabbing' : 'grab') : undefined,
             }}
             className={sortable.isDragging ? 'relative z-50' : undefined}
             data-session-dragging={sortable.isDragging ? 'true' : 'false'}
@@ -1124,11 +1086,6 @@ function SortableSessionItem(
                 dragging={sortable.isDragging}
                 dropTarget={sortable.isOver && !sortable.isDragging}
                 dragInProgress={props.dragInProgress}
-                dragHandleBindings={{
-                    attributes: sortable.attributes,
-                    listeners: sortable.listeners,
-                    setActivatorNodeRef: sortable.setActivatorNodeRef
-                }}
             />
         </div>
     )
@@ -1747,8 +1704,6 @@ export function SessionList(props: {
             coordinateGetter: sortableKeyboardCoordinates
         })
     )
-    const dragInstructionsId = 'session-dnd-instructions'
-
     const listContainerRef = useRef<HTMLDivElement>(null)
 
     const sessionById = useMemo(
@@ -2064,9 +2019,6 @@ export function SessionList(props: {
             ) : null}
 
             <div ref={listContainerRef} className="flex flex-col">
-                <p id={dragInstructionsId} className="sr-only">
-                    {t('session.dragHandle.instructions')}
-                </p>
                 {displayGroups.map((group) => {
                     const isCollapsed = isGroupCollapsed(group)
                     const groupUnreadCount = group.sessions.filter(session => unreadSessionIds.has(session.id)).length
@@ -2123,7 +2075,6 @@ export function SessionList(props: {
                                                         selectedForBulk={selectedSessionIds.has(session.id)}
                                                         unread={unreadSessionIds.has(session.id)}
                                                         dndEnabled={dndEnabled}
-                                                        dragInstructionsId={dragInstructionsId}
                                                         dragInProgress={dragInProgress}
                                                     />
                                                 ))}
@@ -2225,7 +2176,6 @@ export function SessionList(props: {
                                                     selectedForBulk={selectedSessionIds.has(session.id)}
                                                     unread={unreadSessionIds.has(session.id)}
                                                     dndEnabled={dndEnabled}
-                                                    dragInstructionsId={dragInstructionsId}
                                                     dragInProgress={dragInProgress}
                                                 />
                                             ))}
